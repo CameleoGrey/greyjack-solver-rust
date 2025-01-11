@@ -1,0 +1,55 @@
+
+
+use ndarray::Array1;
+use std::ops::AddAssign;
+use std::cmp::Ordering;
+use crate::core::score_calculation::scores::score_trait::ScoreTrait;
+
+#[derive(Debug, Clone)]
+pub struct Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord {
+    variable_values: Array1<f64>,
+    score: ScoreType
+}
+
+impl<ScoreType> Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord {
+    pub fn new(variable_values: Array1<f64>, score: ScoreType) -> Self {
+        Self {
+            variable_values: variable_values,
+            score: score
+        }
+    }
+}
+
+impl<ScoreType> Ord for Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord {
+
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.score.cmp(&other.score)
+    }
+    
+}
+
+impl<ScoreType> Eq for Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord {
+    
+}
+
+impl<ScoreType> PartialEq for Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord  {
+    fn eq(&self, other: &Self) -> bool {
+        self.score.eq(&other.score)
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.score.ne(&other.score)
+    }
+}
+
+impl<ScoreType> PartialOrd for Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.score.partial_cmp(&other.score)
+    }
+}

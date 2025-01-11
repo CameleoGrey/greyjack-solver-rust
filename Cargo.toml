@@ -1,0 +1,5 @@
+[workspace]
+resolver = "1"
+members = [ "try-vector",
+	"try-module-system", "try-string", "try-threads", "greysplanner", "nqueens",
+]
