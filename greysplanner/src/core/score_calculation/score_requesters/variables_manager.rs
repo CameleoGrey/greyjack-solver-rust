@@ -23,8 +23,8 @@ pub struct VariablesManager {
     pub semantic_groups_dict: HashMap<String, Vec<usize>>,
     pub semantic_group_keys: Vec<String>,
     pub n_semantic_groups: usize,
-    pub random_generator: StdRng,
     pub uniform_distribution: Uniform<f64>,
+    pub discrete_ids: Option<Vec<usize>>
 }
 
 impl VariablesManager {
@@ -34,6 +34,7 @@ impl VariablesManager {
         let mut variable_ids: Vec<usize> = Vec::new();
         let mut lower_bounds: Vec<f64> = Vec::new();
         let mut upper_bounds: Vec<f64> = Vec::new();
+        let mut discrete_ids: Vec<usize> = Vec::new();
 
         let variables_count = variables_vec.len();
         for i in 0..variables_count {
@@ -47,6 +48,7 @@ impl VariablesManager {
                 PlanningVariablesTypes::GPIntegerVar(x) => {
                     lower_bounds.push(x.lower_bound);
                     upper_bounds.push(x.upper_bound);
+                    discrete_ids.push(i);
                 }
             }
         }
@@ -54,6 +56,12 @@ impl VariablesManager {
         let semantic_groups_dict = Self::build_semantic_groups_dict(&variables_vec);
         let semantic_group_keys: Vec<String> = semantic_groups_dict.keys().into_vec().iter().map(|x| x.to_string()).collect();
         let n_semantic_groups = semantic_group_keys.len();
+        let discrete_ids_option;
+        if discrete_ids.len() != 0 {
+            discrete_ids_option = Some(discrete_ids);
+        } else {
+            discrete_ids_option = None;
+        }
 
         Self {
             variables_vec: variables_vec,
@@ -65,8 +73,8 @@ impl VariablesManager {
             semantic_groups_dict: semantic_groups_dict,
             semantic_group_keys: semantic_group_keys,
             n_semantic_groups: n_semantic_groups,
-            random_generator: StdRng::from_entropy(),
-            uniform_distribution: Uniform::new(0.0, n_semantic_groups as f64)
+            uniform_distribution: Uniform::new(0.0, n_semantic_groups as f64),
+            discrete_ids: discrete_ids_option
         }
 
     }
@@ -103,12 +111,22 @@ impl VariablesManager {
         return semantic_groups_dict;
     }
 
-    pub fn get_random_semantic_group_ids(&mut self) -> (&Vec<usize>, &String) {
-        let random_group_id = self.uniform_distribution.sample(&mut self.random_generator) as usize;
+    pub fn get_random_semantic_group_ids(&self) -> (&Vec<usize>, &String) {
+        let random_group_id = self.uniform_distribution.sample(&mut StdRng::from_entropy()) as usize;
         let group_name = &self.semantic_group_keys[random_group_id];
         let group_ids = self.semantic_groups_dict.get(group_name).unwrap();
         return (group_ids, group_name);
     }
+
+    pub fn get_column_random_value(&self, column_id: usize) -> f64{
+        Uniform::new(self.lower_bounds[column_id], self.upper_bounds[column_id]).sample(&mut StdRng::from_entropy())
+    }
+
+    pub fn get_random_id(&self, start_id: usize, end_id: usize) -> usize {
+        Uniform::new(start_id, end_id).sample(&mut StdRng::from_entropy())
+    }
+
+
 
     pub fn sample_variables(&mut self) -> Array1<f64> {
 
@@ -127,7 +145,7 @@ impl VariablesManager {
         return values_array;
     }
 
-    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> HashMap<String, AnyValue<'a>>{
+    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> HashMap<String, AnyValue<'a>> {
 
         let mut values_map: HashMap<String, AnyValue<'a>> = HashMap::new();
 
@@ -148,24 +166,20 @@ impl VariablesManager {
         return values_map;
     }
 
-    pub fn fix_variables(&self, values_array: &Array1<f64>, ids_to_fix: Option<Array1<usize>>) -> Array1<f64>{
+    pub fn fix_variables(&self, values_array: &mut Array1<f64>, ids_to_fix: Option<Vec<usize>>) {
 
         let range_ids;
         match ids_to_fix {
             Some(partial_ids) => range_ids = partial_ids,
-            None => range_ids = Array1::from_iter( (0..self.variables_count).into_iter() )
+            None => range_ids = Vec::from_iter( (0..self.variables_count).into_iter() )
         }
 
-        let mut fixed_values = values_array.clone();
         for i in range_ids {
             match &self.variables_vec[i] {
-                GPFloatVar(x) => fixed_values[i] = x.fix(values_array[i]),
-                GPIntegerVar(x) => fixed_values[i] = x.fix(values_array[i]),
+                GPFloatVar(x) => values_array[i] = x.fix(values_array[i]),
+                GPIntegerVar(x) => values_array[i] = x.fix(values_array[i]),
             }
         }
-
-        return fixed_values;
-        
     }
 
 }

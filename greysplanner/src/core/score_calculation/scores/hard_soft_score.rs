@@ -48,6 +48,13 @@ impl ScoreTrait for HardSoftScore {
         }
     }
 
+    fn get_stub_score() -> Self {
+        HardSoftScore {
+            hard_score: f64::MAX - 1.0,
+            soft_score: f64::MAX - 1.0
+        }
+    }
+
     fn mul(&self, scalar: f64) -> Self {
         HardSoftScore {
             hard_score: scalar * self.hard_score,

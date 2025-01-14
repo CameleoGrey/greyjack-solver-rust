@@ -92,7 +92,8 @@ impl GPIntegerVar {
             }
         }
         
-        let fixed_value = Self::min(Self::max(value, self.lower_bound), self.upper_bound);
+        let mut fixed_value = Self::min(Self::max(value, self.lower_bound), self.upper_bound);
+        fixed_value = Self::rint(fixed_value);
 
         return fixed_value;
     }
@@ -123,7 +124,7 @@ impl GPIntegerVar {
                 // add some noise to exclude stucks for some metaheuristics in case of fully initialized values
                 match self.normal_distribution {
                    Some(gauss) => {
-                    initial_value = gauss.sample(&mut self.random_generator);
+                    initial_value = Normal::new(initial_value, 0.1).unwrap().sample(&mut self.random_generator);
                     initial_value = self.fix(initial_value);
                    },
                    None => ()
@@ -156,6 +157,10 @@ impl GPIntegerVar {
             Equal => max_value = b
         }
         max_value
+    }
+
+    fn rint(x: f64) -> f64 {
+        if (x - x.floor()).abs() < (x.ceil() - x).abs() {x.floor()} else {x.ceil()}
     }
 
 }

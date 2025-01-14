@@ -11,6 +11,13 @@ pub struct StepsLimit {
 
 impl StepsLimit {
 
+    pub fn new(steps_limit:u64) -> Self {
+        Self {
+            steps_limit: steps_limit,
+            steps_made: 0
+        }
+    }
+
     pub fn update(&mut self) {
         self.steps_made += 1;
     }

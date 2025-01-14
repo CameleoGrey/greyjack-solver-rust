@@ -4,6 +4,6 @@ use super::steps_limit::StepsLimit;
 use super::score_no_improvement::ScoreNoImprovement;
 
 pub enum TerminationStrategiesVariants {
-    StepsLimit(StepsLimit),
-    ScoreNoImprovement(ScoreNoImprovement)
+    SL(StepsLimit),
+    SNI(ScoreNoImprovement)
 }

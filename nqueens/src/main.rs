@@ -11,31 +11,23 @@ use persistence::{
     domain_generator::DomainGenerator
 };
 
-use greysplanner::core::score_calculation::score_requesters::oop_score_requester::OOPScoreRequester;
+use greysplanner::core::agents::genetic_algorithm::GeneticAlgorithm;
+use greysplanner::core::agents::termination_strategies::steps_limit::StepsLimit;
+use greysplanner::core::agents::termination_strategies::termination_strategies_variants::TerminationStrategiesVariants::SL;
 use ndarray::{Array1};
 use polars::datatypes::AnyValue;
 
+
 fn main() {
 
-    let nqueens_domain = DomainGenerator::generate_domain(32, 45);
+    let nqueens_domain = DomainGenerator::generate_domain(256, 45);
     println!("{}", nqueens_domain);
 
     let mut nqueens_cotwin = CotwinBuilder::build_cotwin(&nqueens_domain);
 
-    let mut score_requester = OOPScoreRequester::new(&mut nqueens_cotwin);
-    let mut samples: Vec<Array1<f64>> = Vec::new();
-    for i in 0..10 {
-        let generated_sample = score_requester.variables_manager.sample_variables();
-        println!("{:?}", generated_sample);
-        samples.push(generated_sample);
-    }
-    
-    let scores = score_requester.request_score(&samples);
+    let mut agent = GeneticAlgorithm::new(&mut nqueens_cotwin, 128, 0.5, Some(1.0), 0.05, 0.000001, 10, SL(StepsLimit::new(10000)));
 
-    for score in scores {
-        println!("{:?}", score);
-    }
-
+    agent.solve();
 
     println!("done");
 }

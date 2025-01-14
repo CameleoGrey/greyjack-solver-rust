@@ -104,7 +104,7 @@ impl GPFloatVar {
                 // add some noise to exclude stucks for some metaheuristics in case of fully initialized values
                 match self.normal_distribution {
                    Some(gauss) => {
-                    initial_value = gauss.sample(&mut self.random_generator);
+                    initial_value = Normal::new(initial_value, 0.1).unwrap().sample(&mut self.random_generator);
                     initial_value = self.fix(initial_value);
                    },
                    None => ()

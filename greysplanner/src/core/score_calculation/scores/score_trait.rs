@@ -8,5 +8,7 @@ pub trait ScoreTrait {
 
     fn get_null_score() -> Self;
 
+    fn get_stub_score() -> Self;
+
     fn mul(&self, scalar: f64) -> Self;
 }

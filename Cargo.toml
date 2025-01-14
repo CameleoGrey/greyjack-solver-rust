@@ -3,3 +3,9 @@ resolver = "1"
 members = [ "try-vector",
 	"try-module-system", "try-string", "try-threads", "greysplanner", "nqueens",
 ]
+
+#[profile.release]
+#lto = true
+#codegen-units = 1
+#debug = true
+#opt-level = 3

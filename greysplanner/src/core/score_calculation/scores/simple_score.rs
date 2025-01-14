@@ -37,6 +37,12 @@ impl ScoreTrait for SimpleScore {
         }
     }
 
+    fn get_stub_score() -> Self {
+        SimpleScore {
+            score_value: f64::MAX - 1.0
+        }
+    }
+
     fn mul(&self, scalar: f64) -> Self {
         SimpleScore {
             score_value: scalar * self.score_value,
