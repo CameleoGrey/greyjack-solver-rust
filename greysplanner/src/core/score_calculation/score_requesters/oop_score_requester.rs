@@ -230,7 +230,7 @@ where
             return (df_name, column_name);
         }
 
-        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<HashMap<String, AnyValue<'a>>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
+        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<(String, AnyValue<'a>)>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
 
             let mut group_data_map: HashMap<String, HashMap<String, Vec<AnyValue>>> = HashMap::new();
 
@@ -238,7 +238,9 @@ where
             let samples_count = samples_vec.len();
             for i in 0..samples_count {
                 let decoded_variables_map = &samples_vec[i];
-                for variable_name in decoded_variables_map.keys() {
+                for variable in decoded_variables_map {
+
+                    let variable_name = &variable.0;
                     
                     if self.var_name_to_df_col_names.contains_key(variable_name) == false {
                         let extracted_names = &Self::get_df_column_name(variable_name.clone());
@@ -257,7 +259,7 @@ where
                     group_data_map
                     .get_mut(&df_col_name.0).unwrap()
                     .get_mut(&df_col_name.1).unwrap()
-                    .push(decoded_variables_map.get(variable_name).unwrap().clone());
+                    .push(variable.1.clone());
                 }
             }
             
@@ -287,8 +289,7 @@ where
 
         pub fn request_score<'a>(&mut self, samples: &Vec<Array1<f64>>) -> Vec<ScoreType>{
 
-            let candidates = samples.iter().map(|x| self.variables_manager.inverse_transform_variables(&x)).collect();
-
+            let candidates:Vec<Vec<(String, AnyValue<'a>)>> = samples.iter().map(|x| self.variables_manager.inverse_transform_variables(&x)).collect();
             let group_data_map = self.build_group_data_map(&candidates);
             let samples_count = candidates.len();
             self.update_dfs_for_scoring(group_data_map, samples_count);

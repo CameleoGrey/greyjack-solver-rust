@@ -29,11 +29,6 @@ pub struct GeneticAlgorithmBase {
     group_mutation_rates_dict: HashMap<String, f64>,
     available_mutation_methods: Vec<Box<dyn Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>>>,
     discrete_ids: Option<Vec<usize>>,
-
-    pub random_generator: StdRng,
-    pub uniform_distribution_null_one: Uniform<f64>,
-    pub uniform_distribution_mutates: Uniform<usize>
-
 }
 
 impl GeneticAlgorithmBase {
@@ -83,19 +78,15 @@ impl GeneticAlgorithmBase {
             group_mutation_rates_dict: group_mutation_rates_dict,
             available_mutation_methods: available_mutation_methods,
             discrete_ids: discrete_ids.clone(),
-
-            random_generator: StdRng::from_entropy(),
-            uniform_distribution_null_one: Uniform::new_inclusive(0.0, 1.0),
-            uniform_distribution_mutates: Uniform::new(0, available_mutations_count)
         }
     }
 
     fn select_p_best<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
     where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
 
-        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut self.random_generator);
+        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
         let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
-        let chosen_id:usize = Uniform::new(0, last_top_id).sample(&mut self.random_generator);
+        let chosen_id:usize = Uniform::new(0, last_top_id).sample(&mut StdRng::from_entropy());
         let p_best = population[chosen_id].clone();
 
         return p_best;
@@ -104,13 +95,24 @@ impl GeneticAlgorithmBase {
     fn select_p_worst<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
     where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
 
-        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut self.random_generator);
+        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
         let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
-        let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut self.random_generator);
+        let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut StdRng::from_entropy());
         let p_worst = population[chosen_id].clone();
 
         return p_worst;
     }
+
+    /*fn select_tournament<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
+    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+
+        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
+        let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
+        let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut StdRng::from_entropy());
+        let p_worst = population[chosen_id].clone();
+
+        return p_worst;
+    }*/
 
     fn cross(&mut self, candidate_1: Array1<f64>, candidate_2: Array1<f64>) -> (Array1<f64>, Array1<f64>) {
 
@@ -135,7 +137,7 @@ impl GeneticAlgorithmBase {
 
     fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager) -> Option<Vec<usize>>{
 
-        let rand_method_id = self.uniform_distribution_mutates.sample(&mut self.random_generator);
+        let rand_method_id = Uniform::new(0, self.available_mutation_methods.len()).sample(&mut StdRng::from_entropy());
         let move_method = &self.available_mutation_methods[rand_method_id];
         let changed_columns = move_method(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count);
         return changed_columns;
@@ -177,7 +179,7 @@ impl GeneticAlgorithmBase {
         let random_values = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
         let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
         let mut current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
-        
+
         if current_change_count < 2 {
             current_change_count = 2;
         }
@@ -193,7 +195,8 @@ impl GeneticAlgorithmBase {
         let mut shifted_columns = changed_columns.clone();
         shifted_columns.rotate_left(1);
 
-        for i in 0..current_change_count {
+        let swap_range = if current_change_count == 2 {1} else {current_change_count};
+        for i in 0..swap_range {
             candidate.swap(changed_columns[i], shifted_columns[i]);
         }
 
@@ -234,7 +237,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             let mut candidate_1 = self.select_p_best(population).variable_values;
             let mut candidate_2 = self.select_p_best(population).variable_values;
 
-            if self.uniform_distribution_null_one.sample(&mut self.random_generator) <= self.crossover_probability {
+            if Uniform::new_inclusive(0.0, 1.0).sample(&mut StdRng::from_entropy()) <= self.crossover_probability {
                 (candidate_1, candidate_2) = self.cross(candidate_1, candidate_2);
             }
             

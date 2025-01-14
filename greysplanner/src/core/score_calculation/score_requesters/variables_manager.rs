@@ -23,7 +23,6 @@ pub struct VariablesManager {
     pub semantic_groups_dict: HashMap<String, Vec<usize>>,
     pub semantic_group_keys: Vec<String>,
     pub n_semantic_groups: usize,
-    pub uniform_distribution: Uniform<f64>,
     pub discrete_ids: Option<Vec<usize>>
 }
 
@@ -73,7 +72,6 @@ impl VariablesManager {
             semantic_groups_dict: semantic_groups_dict,
             semantic_group_keys: semantic_group_keys,
             n_semantic_groups: n_semantic_groups,
-            uniform_distribution: Uniform::new(0.0, n_semantic_groups as f64),
             discrete_ids: discrete_ids_option
         }
 
@@ -112,7 +110,7 @@ impl VariablesManager {
     }
 
     pub fn get_random_semantic_group_ids(&self) -> (&Vec<usize>, &String) {
-        let random_group_id = self.uniform_distribution.sample(&mut StdRng::from_entropy()) as usize;
+        let random_group_id = Uniform::new(0, self.n_semantic_groups).sample(&mut StdRng::from_entropy());
         let group_name = &self.semantic_group_keys[random_group_id];
         let group_ids = self.semantic_groups_dict.get(group_name).unwrap();
         return (group_ids, group_name);
@@ -145,20 +143,20 @@ impl VariablesManager {
         return values_array;
     }
 
-    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> HashMap<String, AnyValue<'a>> {
+    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> Vec<(String, AnyValue<'a>)> {
 
-        let mut values_map: HashMap<String, AnyValue<'a>> = HashMap::new();
+        let mut values_map: Vec<(String, AnyValue<'a>)> = Vec::new();
 
         for i in 0..self.variables_count {
             let variable = &self.variables_vec[i];
             match variable {
                 PlanningVariablesTypes::GPFloatVar(x) => {
                     let inverted_value = x.inverse_transform(values_array[i]);
-                    values_map.insert( x.name.clone() , AnyValue::Float64(inverted_value));
+                    values_map.push( (x.name.clone() , AnyValue::Float64(inverted_value)));
                 }
                 PlanningVariablesTypes::GPIntegerVar(x) => {
                     let inverted_value = x.inverse_transform(values_array[i]);
-                    values_map.insert( x.name.clone() , AnyValue::Int64(inverted_value));
+                    values_map.push( (x.name.clone() , AnyValue::Int64(inverted_value)));
                 }
             }
         }

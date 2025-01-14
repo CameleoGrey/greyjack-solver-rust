@@ -90,17 +90,14 @@ where
 
         self.init_population();
         self.population.sort();
-        self.update_top_individual();
+        //self.update_top_individual();
+        self.current_top_individual = self.population[0].clone();
         self.update_termination_strategy();
         let mut step_id:u64 = 0;
 
         loop {
             
             println!("{}, {:?}", step_id, self.current_top_individual.score);
-            for i in 0..10 {
-                println!("{:?}", self.population[i].score);
-            }
-            println!();
 
             match self.agent_status {
                 AgentStatuses::Alive => self.step(),
@@ -109,7 +106,8 @@ where
             step_id += 1;
 
             self.population.sort();
-            self.update_top_individual();
+            //self.update_top_individual();
+            self.current_top_individual = self.population[0].clone();
             self.update_termination_strategy();
             let is_accomplish;
             match &self.termination_strategy {
@@ -162,7 +160,7 @@ where
     }
 
     fn update_top_individual(&mut self) {
-        if &self.population[0] < &self.current_top_individual {
+        if &self.population[0] <= &self.current_top_individual {
             self.current_top_individual = self.population[0].clone();
         }
     }
@@ -193,26 +191,11 @@ where
 
         let samples: Vec<Array1<f64>> = self.metaheuristic_base.sample_candidates(&mut self.population, &self.current_top_individual, &mut self.score_requester.variables_manager);
         let scores = self.score_requester.request_score(&samples);
-        for i in 0..self.population_size {
-            println!("{:?}", self.population[i].score);
-        }
         let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
         for i in 0..samples.len() {
             candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
         }
         self.population = self.metaheuristic_base.build_updated_population(&self.population, &candidates);
-
-        println!();
-        println!();
-
-        for i in 0..self.population_size {
-            println!("{:?}", self.population[i].score);
-        }
-
-        println!();
-        println!();
-        println!();
-        println!();
     }
 
     fn send_updates(&mut self) {

@@ -43,7 +43,7 @@ impl CotwinBuilder {
 
             let planning_row_id = CotwinValueTypes::GPIntegerVar(
                 GPIntegerVar::new(&format!("queen_{}_row_id", i), 
-                Some(i as i64), 
+                Some(queens[i as usize].row.row_id as i64), 
                 0, (n-1) as i64, false, None)
             );
 
