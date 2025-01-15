@@ -9,13 +9,10 @@ use crate::core::score_calculation::score_requesters::oop_score_requester::OOPSc
 use crate::core::score_calculation::scores::score_trait::ScoreTrait;
 use crate::core::agents::base::individual::Individual;
 use crate::core::agents::metaheuristic_bases::metaheuristic_trait::MetaheuristicBaseTrait;
-use crate::api::oop::cotwin::Cotwin;
 use crate::api::oop::cotwin_entity_trait::CotwinEntityTrait;
-use crate::core::score_calculation::scores::simple_score::SimpleScore;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::AddAssign;
-use polars::datatypes::AnyValue;
 
 #[derive(Clone, Copy)]
 pub enum AgentStatuses {
@@ -90,8 +87,7 @@ where
 
         self.init_population();
         self.population.sort();
-        //self.update_top_individual();
-        self.current_top_individual = self.population[0].clone();
+        self.update_top_individual();
         self.update_termination_strategy();
         let mut step_id:u64 = 0;
 
@@ -106,8 +102,7 @@ where
             step_id += 1;
 
             self.population.sort();
-            //self.update_top_individual();
-            self.current_top_individual = self.population[0].clone();
+            self.update_top_individual();
             self.update_termination_strategy();
             let is_accomplish;
             match &self.termination_strategy {

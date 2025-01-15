@@ -11,9 +11,13 @@ use ndarray_rand::RandomExt;
 use std::ops::AddAssign;
 use std::fmt::Debug;
 
-use rand::SeedableRng;
+use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{num_traits::{one, ToPrimitive}, Distribution, Uniform};
+
+use crate::core::agents::metaheuristic_bases::mutations::mutations_base_trait::MutationsBaseTrait;
+use crate::core::agents::metaheuristic_bases::mutations::mutations_trait::MutationsTrait;
+use crate::core::utils::math_utils;
 
 pub struct GeneticAlgorithmBase {
 
@@ -60,9 +64,9 @@ impl GeneticAlgorithmBase {
         let mut available_mutation_methods: Vec<Box<dyn Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>>> = Vec::new();
         available_mutation_methods.push(Box::new(Self::change_move));
         available_mutation_methods.push(Box::new(Self::swap_move));
-        //available_mutation_methods.push(Box::new(Self::swap_edges_move));
-        //available_mutation_methods.push(Box::new(Self::insertion_move));
-        //available_mutation_methods.push(Box::new(Self::scramble_move));
+        available_mutation_methods.push(Box::new(Self::swap_edges_move));
+        available_mutation_methods.push(Box::new(Self::insertion_move));
+        available_mutation_methods.push(Box::new(Self::scramble_move));
         let available_mutations_count = available_mutation_methods.len();
 
         Self {
@@ -103,30 +107,14 @@ impl GeneticAlgorithmBase {
         return p_worst;
     }
 
-    /*fn select_tournament<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
-    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
-
-        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
-        let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
-        let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut StdRng::from_entropy());
-        let p_worst = population[chosen_id].clone();
-
-        return p_worst;
-    }*/
-
     fn cross(&mut self, candidate_1: Array1<f64>, candidate_2: Array1<f64>) -> (Array1<f64>, Array1<f64>) {
 
         let variables_count = candidate_1.len();
         let mut weights = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
 
-        let do_nothing;
         match &self.discrete_ids {
-            None => do_nothing = true,
-            Some(discrete_ids) => {
-                for i in discrete_ids {
-                    weights[*i] = Self::rint(weights[*i]);
-                }
-            }
+            None => (),
+            Some(discrete_ids) => discrete_ids.into_iter().for_each(|i| weights[*i] = math_utils::rint(weights[*i]))
         }
 
         let new_candidate_1 = &candidate_1 * &weights + &candidate_2 * (1.0 - &weights);
@@ -141,81 +129,6 @@ impl GeneticAlgorithmBase {
         let move_method = &self.available_mutation_methods[rand_method_id];
         let changed_columns = move_method(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count);
         return changed_columns;
-    }
-
-    fn rint(x: f64) -> f64 {
-        if (x - x.floor()).abs() < (x.ceil() - x).abs() {x.floor()} else {x.ceil()}
-    }
-
-    fn change_move(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, group_mutation_rates_dict: &HashMap<String, f64>, variables_count: usize) -> Option<Vec<usize>> {
-
-        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
-        let group_mutation_rate = group_mutation_rates_dict[group_name];
-        let random_values = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
-        let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
-        let mut current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
-        
-        if current_change_count < 1 {
-            current_change_count = 1;
-        }
-        if group_ids.len() - current_change_count < 0 {
-            return None;
-        }
-
-        let mut changed_columns: Vec<usize> = Vec::new();
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len())];
-            changed_columns.push(random_column_id);
-            candidate[random_column_id] = variables_manager.get_column_random_value(random_column_id);
-        }
-
-        return Some(changed_columns);
-    }
-
-    fn swap_move(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, group_mutation_rates_dict: &HashMap<String, f64>, variables_count: usize) -> Option<Vec<usize>> {
-
-        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
-        let group_mutation_rate = group_mutation_rates_dict[group_name];
-        let random_values = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
-        let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
-        let mut current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
-
-        if current_change_count < 2 {
-            current_change_count = 2;
-        }
-        if group_ids.len() - current_change_count < 0 {
-            return None;
-        }
-
-        let mut changed_columns: Vec<usize> = Vec::new();
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len())];
-            changed_columns.push(random_column_id);
-        }
-        let mut shifted_columns = changed_columns.clone();
-        shifted_columns.rotate_left(1);
-
-        let swap_range = if current_change_count == 2 {1} else {current_change_count};
-        for i in 0..swap_range {
-            candidate.swap(changed_columns[i], shifted_columns[i]);
-        }
-
-        return Some(changed_columns);
-    }
-
-    fn swap_edges_move(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, group_mutation_rates_dict: &HashMap<String, f64>, variables_count: usize) -> Option<Vec<usize>> {
-
-        return Some(Vec::new());
-    }
-
-    fn insertion_move(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, group_mutation_rates_dict: &HashMap<String, f64>, variables_count: usize) -> Option<Vec<usize>> {
-
-        return Some(Vec::new());
-    }
-
-    fn scramble_move(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, group_mutation_rates_dict: &HashMap<String, f64>, variables_count: usize) -> Option<Vec<usize>> {
-
-        return Some(Vec::new());
     }
 
 }
@@ -273,5 +186,88 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         return winners;
+    }
+}
+
+impl MutationsBaseTrait for GeneticAlgorithmBase {}
+
+impl MutationsTrait for GeneticAlgorithmBase {
+
+    fn get_needful_info_for_move<'d>(
+            variables_manager: &'d VariablesManager, 
+            group_mutation_rates_dict: &HashMap<String, f64>, 
+            variables_count: usize
+        ) -> (&'d Vec<usize>, usize) {
+        
+            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+            let group_mutation_rate = group_mutation_rates_dict[group_name];
+            let random_values = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
+            let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
+            let mut current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
+
+            return (group_ids, current_change_count);
+    }
+
+    fn change_move(
+            candidate: &mut Array1<f64>, 
+            variables_manager: &VariablesManager, 
+            group_mutation_rates_dict: &HashMap<String, f64>, 
+            variables_count: usize
+        ) -> Option<Vec<usize>> {
+
+            let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
+
+            Self::change_move_base(candidate, variables_manager, current_change_count, &group_ids)   
+    }
+
+    fn swap_move(
+            candidate: &mut Array1<f64>, 
+            variables_manager: &VariablesManager, 
+            group_mutation_rates_dict: &HashMap<String, f64>, 
+            variables_count: usize
+        ) -> Option<Vec<usize>> {
+
+            let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
+        
+            Self::swap_move_base(candidate, variables_manager, current_change_count, &group_ids)
+    }
+    
+    fn swap_edges_move(
+            candidate: &mut Array1<f64>, 
+            variables_manager: &VariablesManager, 
+            group_mutation_rates_dict: &HashMap<String, f64>, 
+            variables_count: usize
+        ) -> Option<Vec<usize>> {
+
+            let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
+            
+            Self::swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids)
+    }
+
+    fn insertion_move(
+            candidate: &mut Array1<f64>, 
+            variables_manager: &VariablesManager, 
+            group_mutation_rates_dict: &HashMap<String, f64>, 
+            variables_count: usize
+        ) -> Option<Vec<usize>> {
+
+            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+            let current_change_count = 2;
+
+            Self::insertion_move_base(candidate, variables_manager, current_change_count, group_ids)
+        
+    }
+
+    fn scramble_move(
+            candidate: &mut Array1<f64>, 
+            variables_manager: &VariablesManager, 
+            group_mutation_rates_dict: 
+            &HashMap<String, f64>, variables_count: usize
+        ) -> Option<Vec<usize>> {
+        
+            let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
+            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+
+            Self::scramble_move_base(candidate, variables_manager, current_change_count, group_ids)
     }
 }

@@ -3,6 +3,7 @@ use std::{cmp::Ordering::*, collections::HashMap};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Normal, Distribution, Uniform};
+use crate::core::utils::math_utils;
 
 #[derive(Debug, Clone)]
 pub struct GPIntegerVar {
@@ -93,7 +94,7 @@ impl GPIntegerVar {
         }
         
         let mut fixed_value = Self::min(Self::max(value, self.lower_bound), self.upper_bound);
-        fixed_value = Self::rint(fixed_value);
+        fixed_value = math_utils::rint(fixed_value);
 
         return fixed_value;
     }
@@ -158,11 +159,6 @@ impl GPIntegerVar {
         }
         max_value
     }
-
-    fn rint(x: f64) -> f64 {
-        if (x - x.floor()).abs() < (x.ceil() - x).abs() {x.floor()} else {x.ceil()}
-    }
-
 }
 
 #[cfg(test)]

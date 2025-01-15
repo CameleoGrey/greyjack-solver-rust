@@ -21,7 +21,7 @@ use polars::datatypes::AnyValue;
 fn main() {
 
     let nqueens_domain = DomainGenerator::generate_domain(256, 45);
-    println!("{}", nqueens_domain);
+    //println!("{}", nqueens_domain);
 
     let mut nqueens_cotwin = CotwinBuilder::build_cotwin(&nqueens_domain);
 
