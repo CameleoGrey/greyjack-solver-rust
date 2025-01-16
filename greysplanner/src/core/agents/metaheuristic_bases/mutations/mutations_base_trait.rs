@@ -6,6 +6,7 @@ use ndarray_rand::RandomExt;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
+use crate::core::utils::math_utils;
 
 pub trait MutationsBaseTrait {
     fn change_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
@@ -17,12 +18,8 @@ pub trait MutationsBaseTrait {
             return None;
         }
 
-        let mut changed_columns: Vec<usize> = Vec::new();
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len())];
-            changed_columns.push(random_column_id);
-            candidate[random_column_id] = variables_manager.get_column_random_value(random_column_id);
-        }
+        let changed_columns: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
+        changed_columns.iter().for_each(|i| candidate[*i] = variables_manager.get_column_random_value(*i));
 
         return Some(changed_columns);
     }
@@ -36,12 +33,7 @@ pub trait MutationsBaseTrait {
             return None;
         }
 
-        let mut changed_columns: Vec<usize> = Vec::new();
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len())];
-            changed_columns.push(random_column_id);
-        }
-
+        let changed_columns: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
         for i in 1..current_change_count {
             candidate.swap(changed_columns[i-1], changed_columns[i]);
         }
@@ -58,11 +50,7 @@ pub trait MutationsBaseTrait {
             current_change_count = group_ids.len()-1;
         }
 
-        let mut columns_to_change: Vec<usize> = Vec::new();
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len()-1)];
-            columns_to_change.push(random_column_id);
-        }
+        let columns_to_change: Vec<usize> = math_utils::choice(&(0..(group_ids.len()-1)).collect(), current_change_count, false);
 
         let mut edges: Vec<(usize, usize)> = Vec::new();
         let mut changed_columns: Vec<usize> = Vec::new();
@@ -90,11 +78,7 @@ pub trait MutationsBaseTrait {
             return None;
         }
 
-        let mut columns_to_change: Vec<usize> = Vec::new(); 
-        for i in 0..current_change_count {
-            let random_column_id = group_ids[variables_manager.get_random_id(0, group_ids.len())];
-            columns_to_change.push(random_column_id);
-        }
+        let columns_to_change: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
 
         let get_out_id = columns_to_change[0];
         let put_in_id = columns_to_change[1];
@@ -125,7 +109,7 @@ pub trait MutationsBaseTrait {
         if group_ids.len() < current_change_count - 1 {
             return None;
         }
-        let current_start_id = variables_manager.get_random_id(0, group_ids.len() - current_change_count);
+        let current_start_id = math_utils::get_random_id(0, group_ids.len() - current_change_count);
         let native_columns: Vec<usize> = (0..current_change_count).into_iter().map(|i| group_ids[current_start_id + i]).collect();
         let mut scrambled_columns = native_columns.clone();
         scrambled_columns.shuffle(&mut StdRng::from_entropy());

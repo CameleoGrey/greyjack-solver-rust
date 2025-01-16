@@ -67,7 +67,6 @@ impl GeneticAlgorithmBase {
         available_mutation_methods.push(Box::new(Self::swap_edges_move));
         available_mutation_methods.push(Box::new(Self::insertion_move));
         available_mutation_methods.push(Box::new(Self::scramble_move));
-        let available_mutations_count = available_mutation_methods.len();
 
         Self {
             population_size: population_size,

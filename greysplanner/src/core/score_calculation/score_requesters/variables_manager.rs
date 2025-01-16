@@ -120,12 +120,6 @@ impl VariablesManager {
         Uniform::new(self.lower_bounds[column_id], self.upper_bounds[column_id]).sample(&mut StdRng::from_entropy())
     }
 
-    pub fn get_random_id(&self, start_id: usize, end_id: usize) -> usize {
-        Uniform::new(start_id, end_id).sample(&mut StdRng::from_entropy())
-    }
-
-
-
     pub fn sample_variables(&mut self) -> Array1<f64> {
 
         let mut values_array: Array1<f64> = Array1::zeros(self.variables_count);
