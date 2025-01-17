@@ -43,6 +43,9 @@ pub trait MutationsBaseTrait {
 
     fn swap_edges_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
+        if group_ids.len() == 0 {
+            return None;
+        }
         if current_change_count < 2 {
             current_change_count = 2;
         }
