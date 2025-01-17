@@ -1,7 +1,7 @@
 [workspace]
 resolver = "1"
 members = [ "try-vector",
-	"try-module-system", "try-string", "try-threads", "greysplanner", "nqueens",
+	"try-module-system", "try-string", "try-threads", "greysplanner", "nqueens", "try-chrono",
 ]
 
 #[profile.release]

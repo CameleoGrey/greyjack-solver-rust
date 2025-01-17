@@ -25,7 +25,7 @@ impl GeneticAlgorithm {
         p_best_rate: f64,
         migration_rate: f64, 
         migration_frequency: usize, 
-        termination_strategy: TerminationStrategiesVariants
+        termination_strategy: TerminationStrategiesVariants<ScoreType>
     ) -> Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType>
     where
     EntityVariants: CotwinEntityTrait,

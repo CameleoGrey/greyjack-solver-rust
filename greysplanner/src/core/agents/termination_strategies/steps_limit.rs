@@ -27,7 +27,7 @@ impl StepsLimit {
 impl TerminationStrategyTrait for StepsLimit {
 
     fn is_accomplish(&self) -> bool {
-        self.steps_made >= self.steps_limit
+        self.steps_made > self.steps_limit
     }
 
     fn get_accomplish_rate(&self) -> f64 {

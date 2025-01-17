@@ -15,12 +15,12 @@ impl NQueensScoreCalculator {
         let mut score_calculator= OOPScoreCalculator::new();
 
         // more explainable
-        score_calculator.add_constraint("different_rows".to_string(), Box::new(Self::different_rows));
-        score_calculator.add_constraint("different_descending_diagonals".to_string(), Box::new(Self::different_descending_diagonals));
-        score_calculator.add_constraint("different_ascending_diagonals".to_string(), Box::new(Self::different_ascending_diagonals));
+        //score_calculator.add_constraint("different_rows".to_string(), Box::new(Self::different_rows));
+        //score_calculator.add_constraint("different_descending_diagonals".to_string(), Box::new(Self::different_descending_diagonals));
+        //score_calculator.add_constraint("different_ascending_diagonals".to_string(), Box::new(Self::different_ascending_diagonals));
 
         // faster
-        //score_calculator.add_constraint("all_different".to_string(), Box::new(Self::all_different));
+        score_calculator.add_constraint("all_different".to_string(), Box::new(Self::all_different));
 
         return score_calculator;
     }

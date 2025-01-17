@@ -861,6 +861,7 @@ dependencies = [
 name = "nqueens"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "greysplanner",
  "ndarray",
  "polars",
@@ -1987,6 +1988,13 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "try-chrono"
+version = "0.1.0"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]

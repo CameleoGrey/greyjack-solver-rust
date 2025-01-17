@@ -27,7 +27,7 @@ where
 
     pub migration_rate: f64, 
     pub migration_frequency: usize, 
-    pub termination_strategy: TerminationStrategiesVariants,
+    pub termination_strategy: TerminationStrategiesVariants<ScoreType>,
 
     pub agent_id: usize,
     pub population_size: usize,
@@ -54,7 +54,7 @@ where
     pub fn new(
         migration_rate: f64, 
         migration_frequency: usize, 
-        termination_strategy: TerminationStrategiesVariants,
+        termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
         score_requester: OOPScoreRequester<'b, EntityVariants, UtilityObjectVariants, ScoreType>,
         metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType>>
@@ -92,8 +92,6 @@ where
         let mut step_id:u64 = 0;
 
         loop {
-            
-            println!("{}, {:?}", step_id, self.current_top_individual.score);
 
             match self.agent_status {
                 AgentStatuses::Alive => self.step(),
@@ -104,10 +102,14 @@ where
             self.population.sort();
             self.update_top_individual();
             self.update_termination_strategy();
+            println!("{}, {:?}", step_id, self.current_top_individual.score);
+            
             let is_accomplish;
             match &self.termination_strategy {
-                SL(steps_limit) => is_accomplish = steps_limit.is_accomplish(),
+                StL(steps_limit) => is_accomplish = steps_limit.is_accomplish(),
                 SNI(no_improvement) => is_accomplish = no_improvement.is_accomplish(),
+                TSL(time_spent_limit) => is_accomplish = time_spent_limit.is_accomplish(),
+                ScL(score_limit) => is_accomplish = score_limit.is_accomplish()
             }
 
             if is_accomplish {
@@ -163,8 +165,10 @@ where
     fn update_termination_strategy(&mut self) {
         
         match &mut self.termination_strategy {
-            SL(steps_limit) => steps_limit.update(),
-            SNI(no_improvement) => no_improvement.update(),
+            StL(steps_limit) => steps_limit.update(),
+            SNI(no_improvement) => no_improvement.update(&self.current_top_individual),
+            TSL(time_spent_limit) => time_spent_limit.update(),
+            ScL(score_limit) => score_limit.update(&self.current_top_individual)
         }
     }
 
@@ -172,8 +176,10 @@ where
 
         let is_accomplish;
         match &self.termination_strategy {
-            SL(steps_limit) => is_accomplish = steps_limit.is_accomplish(),
+            StL(steps_limit) => is_accomplish = steps_limit.is_accomplish(),
             SNI(no_improvement) => is_accomplish = no_improvement.is_accomplish(),
+            TSL(time_spent_limit) => is_accomplish = time_spent_limit.is_accomplish(),
+            ScL(score_limit) => is_accomplish = score_limit.is_accomplish()
         }
 
         if is_accomplish {
