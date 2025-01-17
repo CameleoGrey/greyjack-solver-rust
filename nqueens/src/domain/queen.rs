@@ -1,6 +1,6 @@
 
-use crate::domain::column::Column;
-use crate::domain::row::Row;
+use crate::domain::Column;
+use crate::domain::Row;
 
 pub struct Queen {
     pub row: Row,

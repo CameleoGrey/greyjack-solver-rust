@@ -5,18 +5,12 @@ mod score;
 mod persistence;
 
 use std::collections::HashMap;
+use greysplanner::score_calculation::scores::SimpleScore;
+use persistence::{CotwinBuilder, DomainGenerator};
 
-use greysplanner::core::agents::termination_strategies::score_limit::ScoreLimit;
-use greysplanner::core::score_calculation::scores::simple_score::SimpleScore;
-use persistence::{
-    cotwin_builder::CotwinBuilder, 
-    domain_generator::DomainGenerator
-};
-
-use greysplanner::core::agents::{genetic_algorithm::GeneticAlgorithm, termination_strategies::score_no_improvement::ScoreNoImprovement};
-use greysplanner::core::agents::termination_strategies::steps_limit::StepsLimit;
-use greysplanner::core::agents::termination_strategies::time_spent_limit::TimeSpentLimit;
-use greysplanner::core::agents::termination_strategies::termination_strategies_variants::TerminationStrategiesVariants::*;
+use greysplanner::agents::GeneticAlgorithm;
+use greysplanner::agents::termination_strategies::*;
+use greysplanner::agents::termination_strategies::TerminationStrategiesVariants::*;
 use ndarray::{Array1};
 use polars::datatypes::AnyValue;
 use chrono::{prelude::*, TimeDelta};

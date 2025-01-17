@@ -1,10 +1,10 @@
 
-use crate::domain::queen::Queen;
+use crate::domain::Queen;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::vec::Vec;
 
-use super::position::Position;
+use super::Position;
 
 pub struct ChessBoard {
     pub n: u64,

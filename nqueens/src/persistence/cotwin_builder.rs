@@ -1,13 +1,13 @@
 
 
-use greysplanner::api::oop::cotwin::Cotwin;
-use greysplanner::api::oop::cotwin_value_types::CotwinValueTypes;
-use greysplanner::api::oop::cotwin_entity_trait::CotwinEntityTrait;
-use greysplanner::core::score_calculation::scores::simple_score::SimpleScore;
-use greysplanner::core::variables::gp_integer_var::GPIntegerVar;
-use crate::cotwin::cot_queen::CotQueen;
-use crate::score::nqueens_score_calculator::NQueensScoreCalculator;
-use crate::domain::chess_board::ChessBoard;
+use greysplanner::cotwin::Cotwin;
+use greysplanner::cotwin::CotwinValueTypes;
+use greysplanner::cotwin::CotwinEntityTrait;
+use greysplanner::score_calculation::scores::SimpleScore;
+use greysplanner::variables::GPIntegerVar;
+use crate::cotwin::CotQueen;
+use crate::score::NQueensScoreCalculator;
+use crate::domain::ChessBoard;
 use polars::datatypes::AnyValue;
 use std::collections::HashMap;
 

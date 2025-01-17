@@ -1,10 +1,8 @@
 
 
-use crate::domain::chess_board::ChessBoard;
-use crate::domain::queen::Queen;
-use crate::domain::position::Position;
-use crate::domain::row::Row;
-use crate::domain::column::Column;
+use crate::domain::ChessBoard;
+use crate::domain::Queen;
+use crate::domain::Position;
 
 use std::collections::HashMap;
 use rand::*;
