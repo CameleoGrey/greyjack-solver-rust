@@ -7,7 +7,7 @@ use std::ops::AddAssign;
 use std::fmt::Debug;
 
 pub struct ScoreNoImprovement<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     limit_milliseconds: i64,
     start_time: i64,
@@ -17,7 +17,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> ScoreNoImprovement<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     pub fn new(limit_milliseconds: i64) -> Self{
         Self {
@@ -55,7 +55,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> TerminationStrategyTrait for ScoreNoImprovement<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn is_accomplish(&self, ) -> bool {
         if self.time_delta >= self.limit_milliseconds {

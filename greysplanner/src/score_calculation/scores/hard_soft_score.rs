@@ -61,6 +61,10 @@ impl ScoreTrait for HardSoftScore {
             soft_score: scalar * self.soft_score
         }
     }
+
+    fn precision_len() -> usize {
+        2
+    }
 }
 
 impl Eq for HardSoftScore {}
@@ -96,6 +100,8 @@ impl AddAssign for HardSoftScore {
         self.soft_score += rhs.soft_score;
     }
 }
+
+unsafe impl Send for HardSoftScore {}
 
 #[cfg(test)]
 mod tests {

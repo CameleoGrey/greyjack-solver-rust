@@ -8,10 +8,10 @@ use std::ops::AddAssign;
 pub struct OOPScoreCalculator<UtilityObjectVariants, ScoreType>
 where 
     ScoreType: ScoreTrait + Clone + AddAssign {
-    constraints: HashMap<String, Box<dyn Fn(&mut HashMap<String, DataFrame>, &HashMap<String, DataFrame>) -> Vec<ScoreType>>>,
+    constraints: HashMap<String, Box<dyn (Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>) -> Vec<ScoreType>) + Send>>,
     constraint_weights: HashMap<String, f64>,
     utility_objects: HashMap<String, UtilityObjectVariants>,
-    prescoring_functions: HashMap<String, Box<dyn Fn(&mut HashMap<String, DataFrame>, &HashMap<String, DataFrame>)>>,
+    prescoring_functions: HashMap<String, Box<dyn Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>)>>,
 }
 
 impl<UtilityObjectVariants, ScoreType> OOPScoreCalculator<UtilityObjectVariants, ScoreType>
@@ -26,8 +26,11 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
         }
     }
 
-    pub fn add_constraint(&mut self, constraint_name: String, constraint_function: Box<dyn Fn(&mut HashMap<String, DataFrame>, &HashMap<String, DataFrame>) -> Vec<ScoreType>>) {
-        self.constraints.insert(constraint_name, constraint_function);
+    pub fn add_constraint(&mut self, constraint_name: String, constraint_function: Box<dyn (Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>) -> Vec<ScoreType>) + Send>) {
+        self.constraints.insert(constraint_name.clone(), constraint_function);
+        if self.constraint_weights.contains_key(&constraint_name) == false {
+            self.constraint_weights.insert(constraint_name.to_string().clone(), 1.0);
+        }
     }
 
     pub fn remove_constraint(&mut self, constraint_name: String) {
@@ -46,7 +49,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
         self.utility_objects.remove(&utility_object_name);
     }
 
-    pub fn add_prescoring_function(&mut self, function_name: String, function: Box<dyn Fn(&mut HashMap<String, DataFrame>, &HashMap<String, DataFrame>)>) {
+    pub fn add_prescoring_function(&mut self, function_name: String, function: Box<dyn Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>)>) {
         self.prescoring_functions.insert(function_name, function);
     }
 
@@ -54,7 +57,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
         self.prescoring_functions.remove(&function_name);
     }
 
-    fn check_constraint_weights(&mut self) {
+    /*fn check_constraint_weights(&mut self) {
         
         // all weights are existing, do nothing
         if self.constraint_weights.keys().len() == self.constraints.len() {
@@ -73,16 +76,16 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
             }
         }
 
-    }
+    }*/
     
-    pub fn get_score(&mut self, planning_entity_dfs: &mut HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<ScoreType> {
+    pub fn get_score(&self, planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<ScoreType> {
 
         for prescoring_function_name in self.prescoring_functions.keys() {
             let prescoring_function = self.prescoring_functions.get(prescoring_function_name).unwrap();
             prescoring_function(planning_entity_dfs, problem_fact_dfs);
         }
 
-        self.check_constraint_weights();
+        //self.check_constraint_weights();
 
         let mut constraint_names: Vec<String> = Vec::new();
         for constraint_name in self.constraints.keys() {
@@ -114,3 +117,6 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
     }
 
 }
+
+unsafe impl<UtilityObjectVariants, ScoreType> Send for OOPScoreCalculator<UtilityObjectVariants, ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + Send {}

@@ -1,5 +1,6 @@
 
 
+pub mod solver;
 pub mod agents;
 pub mod cotwin;
 pub mod variables;

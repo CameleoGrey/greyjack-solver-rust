@@ -8,13 +8,13 @@ use crate::score_calculation::scores::ScoreTrait;
 
 #[derive(Debug, Clone)]
 pub struct Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
     pub variable_values: Array1<f64>,
     pub score: ScoreType
 }
 
 impl<ScoreType> Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
     pub fn new(variable_values: Array1<f64>, score: ScoreType) -> Self {
         Self {
             variable_values: variable_values,
@@ -24,7 +24,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> Ord for Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn cmp(&self, other: &Self) -> Ordering {
         self.score.cmp(&other.score)
@@ -33,12 +33,12 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> Eq for Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
     
 }
 
 impl<ScoreType> PartialEq for Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug  {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send  {
     fn eq(&self, other: &Self) -> bool {
         self.score.eq(&other.score)
     }
@@ -49,8 +49,13 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> PartialOrd for Individual<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.score.partial_cmp(&other.score)
     }
+}
+
+unsafe impl<ScoreType> Send for Individual<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+
 }

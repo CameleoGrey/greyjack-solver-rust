@@ -7,7 +7,7 @@ use std::ops::AddAssign;
 use std::fmt::Debug;
 
 pub struct ScoreLimit<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     target_score: ScoreType,
     current_best_score: ScoreType
@@ -15,7 +15,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> ScoreLimit<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     pub fn new(target_score:ScoreType) -> Self {
         Self {
@@ -31,7 +31,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 }
 
 impl<ScoreType> TerminationStrategyTrait for ScoreLimit<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn is_accomplish(&self) -> bool {
         self.current_best_score <= self.target_score

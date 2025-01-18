@@ -13,6 +13,10 @@ use crate::cotwin::CotwinEntityTrait;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::AddAssign;
+use crossbeam_channel::*;
+
+use super::AgentToAgentUpdate;
+use super::AgentToSolverUpdate;
 
 #[derive(Clone, Copy)]
 pub enum AgentStatuses {
@@ -20,10 +24,10 @@ pub enum AgentStatuses {
     Dead
 }
 
-pub struct Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType>
+pub struct Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug, {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     pub migration_rate: f64, 
     pub migration_frequency: usize, 
@@ -37,28 +41,33 @@ where
     // for future Python/Rust version:
     // remove cotwin from requester, place there only address of python replier. How to build VariablesManager without double borrowing of cotwin?
     // score_replier: &'b mut Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
-    pub score_requester: OOPScoreRequester<'b, EntityVariants, UtilityObjectVariants, ScoreType>,
-    pub metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType>>,
+    pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
+    pub score_precision: Option<Vec<usize>>,
+    pub metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>,
     
     pub steps_to_send_updates: usize,
     pub agent_status: AgentStatuses,
-    pub round_robin_status_dict: HashMap<usize, AgentStatuses>,
+    pub round_robin_status_vec: Vec<AgentStatuses>,
+
+    pub updates_to_agent_sender: Option<Sender<AgentToAgentUpdate>>,
+    pub updates_for_agent_receiver: Option<Receiver<AgentToAgentUpdate>>
+
 }
 
-impl<'b, EntityVariants, UtilityObjectVariants, ScoreType> 
-Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType>
+impl<EntityVariants, UtilityObjectVariants, ScoreType> 
+Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     pub fn new(
         migration_rate: f64, 
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
-        score_requester: OOPScoreRequester<'b, EntityVariants, UtilityObjectVariants, ScoreType>,
-        metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType>>
-    ) -> Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType> {
+        score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
+        metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>
+    ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType> {
 
         // agent_id, round_robin_status_dict and channels will be set by Solver, not by agent 
         Self {
@@ -66,20 +75,20 @@ where
             migration_frequency: migration_frequency,
             termination_strategy: termination_strategy,
 
-            agent_id: 10000000,
+            agent_id: 777777777, // setups by Solver
             population_size: population_size,
             population: Vec::new(),
             current_top_individual: Individual::new(Array1::default(1), ScoreType::get_stub_score()),
             
-            // TODO:
-            // move current cotwin to agent, save it until solving, and only on solving start
-            // init score_requester and population (to use distinct thread)
             score_requester: score_requester,
+            score_precision: None, // setups by Solver
             metaheuristic_base: metaheuristic_base,
             
             steps_to_send_updates: migration_frequency,
             agent_status: AgentStatuses::Alive,
-            round_robin_status_dict: HashMap::new(),
+            round_robin_status_vec: Vec::new(), // setups by Solver
+            updates_to_agent_sender: None, // setups by Solver
+            updates_for_agent_receiver: None // setups by Solver
         }
     }
 
@@ -102,7 +111,7 @@ where
             self.population.sort();
             self.update_top_individual();
             self.update_termination_strategy();
-            println!("{}, {:?}", step_id, self.current_top_individual.score);
+            println!("{}, {}, {:?}", self.agent_id, step_id, self.current_top_individual.score);
             
             let is_accomplish;
             match &self.termination_strategy {
@@ -184,7 +193,7 @@ where
 
         if is_accomplish {
             self.agent_status = AgentStatuses::Dead;
-            self.round_robin_status_dict.insert(self.agent_id, self.agent_status);
+            self.round_robin_status_vec.insert(self.agent_id, self.agent_status);
         }
     }
 
@@ -212,3 +221,9 @@ where
     }
         
 }
+
+unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for 
+Agent<EntityVariants, UtilityObjectVariants, ScoreType>
+where
+    EntityVariants: CotwinEntityTrait,
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {}

@@ -7,7 +7,7 @@ use std::ops::AddAssign;
 use std::fmt::Debug;
 
 pub trait MetaheuristicBaseTrait<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn sample_candidates(
         &mut self,

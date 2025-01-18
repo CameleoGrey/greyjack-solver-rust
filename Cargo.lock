@@ -549,6 +549,7 @@ dependencies = [
  "polars",
  "rand",
  "rand_distr",
+ "rayon",
  "threadpool",
 ]
 

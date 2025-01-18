@@ -172,3 +172,5 @@ impl VariablesManager {
     }
 
 }
+
+unsafe impl Send for VariablesManager {}

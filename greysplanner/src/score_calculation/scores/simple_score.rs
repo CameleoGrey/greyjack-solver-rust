@@ -48,6 +48,10 @@ impl ScoreTrait for SimpleScore {
             score_value: scalar * self.score_value,
         }
     }
+
+    fn precision_len() -> usize {
+        1
+    }
 }
 
 impl Eq for SimpleScore {}
@@ -75,6 +79,8 @@ impl AddAssign for SimpleScore {
         self.score_value += rhs.score_value;
     }
 }
+
+unsafe impl Send for SimpleScore {}
 
 #[cfg(test)]
 mod tests {

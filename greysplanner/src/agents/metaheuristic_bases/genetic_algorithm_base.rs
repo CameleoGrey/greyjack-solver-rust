@@ -31,7 +31,7 @@ pub struct GeneticAlgorithmBase {
     metaheuristic_name: String,
 
     group_mutation_rates_dict: HashMap<String, f64>,
-    available_mutation_methods: Vec<Box<dyn Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>>>,
+    available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>>,
     discrete_ids: Option<Vec<usize>>,
 }
 
@@ -61,12 +61,12 @@ impl GeneticAlgorithmBase {
             group_mutation_rates_dict.insert(group_name.clone(), current_group_mutation_rate);
         }
 
-        let mut available_mutation_methods: Vec<Box<dyn Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>>> = Vec::new();
-        available_mutation_methods.push(Box::new(Self::change_move));
-        available_mutation_methods.push(Box::new(Self::swap_move));
-        available_mutation_methods.push(Box::new(Self::swap_edges_move));
-        available_mutation_methods.push(Box::new(Self::insertion_move));
-        available_mutation_methods.push(Box::new(Self::scramble_move));
+        let mut available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>> = Vec::new();
+        available_mutation_methods.push(Box::new(Self::change_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
+        available_mutation_methods.push(Box::new(Self::swap_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
+        available_mutation_methods.push(Box::new(Self::swap_edges_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
+        available_mutation_methods.push(Box::new(Self::insertion_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
+        available_mutation_methods.push(Box::new(Self::scramble_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
 
         Self {
             population_size: population_size,
@@ -85,7 +85,7 @@ impl GeneticAlgorithmBase {
     }
 
     fn select_p_best<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
-    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
         let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
         let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
@@ -96,7 +96,7 @@ impl GeneticAlgorithmBase {
     }
 
     fn select_p_worst<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
-    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
         let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
         let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
@@ -133,7 +133,7 @@ impl GeneticAlgorithmBase {
 }
 
 impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for GeneticAlgorithmBase
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn sample_candidates(
             &mut self, 
@@ -270,3 +270,5 @@ impl MutationsTrait for GeneticAlgorithmBase {
             Self::scramble_move_base(candidate, variables_manager, current_change_count, group_ids)
     }
 }
+
+unsafe impl Send for GeneticAlgorithmBase {}

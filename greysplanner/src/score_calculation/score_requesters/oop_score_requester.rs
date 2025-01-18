@@ -15,10 +15,10 @@ use ndarray::Array1;
 use polars::prelude::*;
 
 
-pub struct OOPScoreRequester<'b, EntityVariants, UtilityObjectVariants, ScoreType>
-where 
-    ScoreType: ScoreTrait + Clone + AddAssign {
-        pub cotwin: &'b mut Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
+pub struct OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+where
+    ScoreType: ScoreTrait + Clone + AddAssign + Send{
+        pub cotwin: Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
         pub variables_manager: VariablesManager,
 
         pub var_name_to_df_col_names: HashMap<String, (String, String)>,
@@ -32,15 +32,15 @@ where
         pub dfs_for_scoring: HashMap<String, DataFrame>,
 }
 
-impl<'b, EntityVariants, UtilityObjectVariants, ScoreType> 
-OOPScoreRequester<'b, EntityVariants, UtilityObjectVariants, ScoreType>
-where 
-    ScoreType: ScoreTrait + Clone + AddAssign,
+impl<EntityVariants, UtilityObjectVariants, ScoreType> 
+OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+where
+    ScoreType: ScoreTrait + Clone + AddAssign + Send,
     EntityVariants: CotwinEntityTrait {
 
-        pub fn new(cotwin: &'b mut Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>) -> Self {
+        pub fn new(cotwin: Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>) -> Self {
 
-            let (variables_vec, var_name_to_vec_id_map, vec_id_to_var_name_map) = Self::build_variables_info(cotwin);
+            let (variables_vec, var_name_to_vec_id_map, vec_id_to_var_name_map) = Self::build_variables_info(&cotwin);
             let variables_manager = VariablesManager::new(variables_vec);
 
             let planning_entities_column_map = Self::build_column_map(&cotwin.planning_entities);
@@ -294,9 +294,14 @@ where
             let samples_count = candidates.len();
             self.update_dfs_for_scoring(group_data_map, samples_count);
 
-            let score_batch = &self.cotwin.get_score(&mut self.planning_entity_dfs, &self.problem_fact_dfs);
+            let score_batch = &self.cotwin.get_score(&self.planning_entity_dfs, &self.problem_fact_dfs);
             let score_batch = score_batch.to_owned();
 
             return score_batch;
         }
     }
+
+unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+where 
+    ScoreType: ScoreTrait + Clone + AddAssign + Send,
+    EntityVariants: CotwinEntityTrait {}

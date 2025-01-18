@@ -16,8 +16,8 @@ pub struct GeneticAlgorithm {
 
 impl GeneticAlgorithm {
     
-    pub fn new<'b, EntityVariants, UtilityObjectVariants, ScoreType> (
-        cotwin: &'b mut Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
+    pub fn new<EntityVariants, UtilityObjectVariants, ScoreType> (
+        cotwin: Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
         population_size: usize, 
         crossover_probability: f64, 
         mutation_rate_multiplier: Option<f64>, 
@@ -25,10 +25,10 @@ impl GeneticAlgorithm {
         migration_rate: f64, 
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>
-    ) -> Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType>
+    ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType>
     where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
         let score_requester = OOPScoreRequester::new(cotwin);
         let semantic_groups_dict = score_requester.variables_manager.semantic_groups_dict.clone();
@@ -38,7 +38,7 @@ impl GeneticAlgorithm {
                                                                                  mutation_rate_multiplier, p_best_rate, 
                                                                                  semantic_groups_dict, discrete_ids);
         
-        let agent: Agent<'b, EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(migration_rate, 
+        let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(migration_rate, 
                                                                                             migration_frequency, termination_strategy, 
                                                                                             population_size, score_requester, 
                                                                                             Box::new(metaheuristic_base));

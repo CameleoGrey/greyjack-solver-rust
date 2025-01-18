@@ -11,4 +11,7 @@ pub trait ScoreTrait {
     fn get_stub_score() -> Self;
 
     fn mul(&self, scalar: f64) -> Self;
+
+    #[inline]
+    fn precision_len() -> usize;
 }
