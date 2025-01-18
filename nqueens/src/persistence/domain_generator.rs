@@ -51,3 +51,5 @@ impl DomainGenerator {
         
     }
 }
+
+unsafe impl Send for DomainGenerator {}

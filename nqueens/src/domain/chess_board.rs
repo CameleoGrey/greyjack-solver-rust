@@ -6,6 +6,7 @@ use std::vec::Vec;
 
 use super::Position;
 
+#[derive(Clone)]
 pub struct ChessBoard {
     pub n: u64,
     pub positions_map: HashMap<String, Position>,

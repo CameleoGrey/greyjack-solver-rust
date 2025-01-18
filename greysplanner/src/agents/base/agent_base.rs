@@ -17,6 +17,7 @@ use crossbeam_channel::*;
 
 use super::AgentToAgentUpdate;
 use super::AgentToSolverUpdate;
+use chrono::*;
 
 #[derive(Clone, Copy)]
 pub enum AgentStatuses {
@@ -199,13 +200,21 @@ where
 
     fn step(&mut self) {
 
+        //let start_time = chrono::Utc::now().timestamp_millis();
         let samples: Vec<Array1<f64>> = self.metaheuristic_base.sample_candidates(&mut self.population, &self.current_top_individual, &mut self.score_requester.variables_manager);
+        //println!("sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+
+        //let start_time = chrono::Utc::now().timestamp_millis();
         let scores = self.score_requester.request_score(&samples);
+        //println!("scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+        
+        //let start_time = chrono::Utc::now().timestamp_millis();
         let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
         for i in 0..samples.len() {
             candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
         }
         self.population = self.metaheuristic_base.build_updated_population(&self.population, &candidates);
+        //println!("update population time: {}", chrono::Utc::now().timestamp_millis() - start_time );
     }
 
     fn send_updates(&mut self) {

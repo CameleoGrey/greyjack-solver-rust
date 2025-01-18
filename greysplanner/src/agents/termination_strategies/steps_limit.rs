@@ -2,6 +2,7 @@
 
 use super::TerminationStrategyTrait;
 
+#[derive(Clone)]
 pub struct StepsLimit {
 
     steps_limit: u64,

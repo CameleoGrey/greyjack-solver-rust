@@ -2,6 +2,7 @@
 use super::TerminationStrategyTrait;
 use chrono::prelude::*;
 
+#[derive(Clone)]
 pub struct TimeSpentLimit {
 
     limit_milliseconds: i64,

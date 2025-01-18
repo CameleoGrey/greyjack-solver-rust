@@ -2,6 +2,7 @@
 use crate::domain::Column;
 use crate::domain::Row;
 
+#[derive(Clone)]
 pub struct Queen {
     pub row: Row,
     pub column: Column
