@@ -126,11 +126,23 @@ where
             self.steps_to_send_updates -= 1;
             if self.steps_to_send_updates <= 0 {
                 if self.agent_id % 2 == 0 {
-                    self.send_updates();
-                    self.receive_updates();
+                    match self.send_updates() {
+                        Err(x) => break,
+                        _ => ()
+                    }
+                    match self.receive_updates() {
+                        Err(x) => break,
+                        _ => ()
+                    }
                 } else {
-                    self.receive_updates();
-                    self.send_updates();
+                    match self.receive_updates() {
+                        Err(x) => break,
+                        _ => ()
+                    }
+                    match self.send_updates() {
+                        Err(x) => break,
+                        _ => ()
+                    }
                 }
                 self.steps_to_send_updates = self.migration_frequency;
             }
@@ -234,7 +246,7 @@ where
         //println!("update population time: {}", chrono::Utc::now().timestamp_millis() - start_time );
     }
 
-    fn send_updates(&mut self) {
+    fn send_updates(&mut self) -> Result<usize, usize> {
 
         // assume that the agent's population is already sorted 
         let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
@@ -244,12 +256,17 @@ where
         let agent_update = AgentToAgentUpdate::new(self.agent_id, migrants, round_robin_status_vec);
         let send_result = self.updates_to_agent_sender.as_mut().unwrap().send(agent_update);
         match send_result {
-            Err(e) => println!("Warning! Failed to send updates by Agent {} due to {}. Continue work, trying next time", self.agent_id, e),
+            Err(e) => {
+                println!("Warning! Failed to send updates by Agent {} due to {}", self.agent_id, e);
+                return Err(1);
+            },
             _ => ()
         }
+
+        Ok(0)
     }
 
-    fn receive_updates(&mut self) {
+    fn receive_updates(&mut self) -> Result<usize, usize> {
 
         // assume that the agent's population is already sorted
 
@@ -257,8 +274,8 @@ where
         let received_updates_result = self.updates_for_agent_receiver.as_mut().unwrap().recv();
         match received_updates_result {
             Err(e) => {
-                println!("Warning! Failed to receive updates by Agent {} due to {}. Continue work, trying next time", self.agent_id, e);
-                return;
+                println!("Warning! Failed to receive updates by Agent {} due to {}", self.agent_id, e);
+                return Err(1);
             },
             Ok(updates) => received_updates = updates
         }
@@ -284,6 +301,8 @@ where
                 self.population[comparison_ids[i]] = received_updates.migrants[i].clone();
             }
         });
+
+        Ok(0)
 
     }
         

@@ -28,8 +28,8 @@ fn main() {
     let n_jobs = 10;
     let mut agent_builders = Vec::new();
     for i in 0..n_jobs {
-        //let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(0.0)));
-        let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
+        let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(5.0)));
+        //let termination_strategy = TSL(TimeSpentLimit::new(5*1000));
         //let termination_strategy = StL(StepsLimit::new(100));
         //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
         let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.000001, 10, termination_strategy));
