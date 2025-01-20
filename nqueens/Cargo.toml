@@ -10,3 +10,4 @@ rand_distr = "0.4.3"
 polars = { version = "0.45.1", features = ["lazy", "ndarray"] }
 ndarray = "0.16.1"
 chrono = "0.4.39"
+tokio = "1.43.0"

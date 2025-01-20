@@ -15,8 +15,9 @@ use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{num_traits::{one, ToPrimitive}, Distribution, Uniform};
 
-use crate::agents::metaheuristic_bases::mutations::MutationsBaseTrait;
-use crate::agents::metaheuristic_bases::mutations::MutationsTrait;
+use super::mutations::MutationsBaseTrait;
+use super::mutations::MutationsTrait;
+use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
 
 pub struct GeneticAlgorithmBase {
@@ -27,8 +28,8 @@ pub struct GeneticAlgorithmBase {
     mutation_rate_multiplier: f64,
     p_best_rate: f64,
 
-    metaheuristic_type: String,
-    metaheuristic_name: String,
+    metaheuristic_kind: MetaheuristicKind,
+    metaheuristic_name: MetaheuristicNames,
 
     group_mutation_rates_dict: HashMap<String, f64>,
     available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>>,
@@ -75,8 +76,8 @@ impl GeneticAlgorithmBase {
             mutation_rate_multiplier: current_mutation_rate_multiplier,
             p_best_rate: p_best_rate,
 
-            metaheuristic_type: metaheuristic_type,
-            metaheuristic_name: metaheuristic_name,
+            metaheuristic_kind: MetaheuristicKind::Population,
+            metaheuristic_name: MetaheuristicNames::GeneticAlgorithm,
 
             group_mutation_rates_dict: group_mutation_rates_dict,
             available_mutation_methods: available_mutation_methods,
@@ -185,6 +186,14 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         return winners;
+    }
+
+    fn get_metaheuristic_kind(&self) -> MetaheuristicKind {
+        self.metaheuristic_kind.clone()
+    }
+
+    fn get_metaheuristic_name(&self) -> MetaheuristicNames {
+        self.metaheuristic_name.clone()
     }
 }
 

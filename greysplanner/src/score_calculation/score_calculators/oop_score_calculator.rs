@@ -56,27 +56,6 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
     pub fn remove_prescoring_function(&mut self, function_name: String) {
         self.prescoring_functions.remove(&function_name);
     }
-
-    /*fn check_constraint_weights(&mut self) {
-        
-        // all weights are existing, do nothing
-        if self.constraint_weights.keys().len() == self.constraints.len() {
-            return;
-        }
-
-        // set default constraint weight for existing constraints
-        let mut constaint_weight_names: HashSet<String> = HashSet::new();
-        let constraint_weights = &mut self.constraint_weights;
-        for existing_name in constraint_weights.keys() {
-            constaint_weight_names.insert(existing_name.clone());
-        }
-        for constraint_name in self.constraints.keys() {
-            if constaint_weight_names.contains(constraint_name) == false {
-                constraint_weights.insert(constraint_name.clone(), 1.0);
-            }
-        }
-
-    }*/
     
     pub fn get_score(&self, planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<ScoreType> {
 
@@ -84,8 +63,6 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
             let prescoring_function = self.prescoring_functions.get(prescoring_function_name).unwrap();
             prescoring_function(planning_entity_dfs, problem_fact_dfs);
         }
-
-        //self.check_constraint_weights();
 
         let mut constraint_names: Vec<String> = Vec::new();
         for constraint_name in self.constraints.keys() {

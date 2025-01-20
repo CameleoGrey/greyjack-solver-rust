@@ -81,52 +81,6 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
 }
 
 impl CotwinBuilder {
-
-    /*pub fn new() -> Self {
-        Self{}
-    }
-
-    pub fn build_cotwin<'a>(domain_model: DomainVariants) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, SimpleScore> {
-
-        let chess_board;
-        match domain_model {
-            DomainVariants::CB(ch_b) => chess_board= ch_b,
-        }
-
-        let n = chess_board.n;
-        let queens = &chess_board.queens;
-        let mut cot_queens: Vec<EntityVariants> = Vec::new();
-
-        for i in 0..n {
-            let queen_id  = CotwinValueTypes::PolarsAnyValue(AnyValue::UInt64(i));
-            let column_id = CotwinValueTypes::PolarsAnyValue(AnyValue::UInt64(i));
-
-            let planning_row_id = CotwinValueTypes::GPIntegerVar(
-                GPIntegerVar::new(&format!("queen_{}_row_id", i), 
-                Some(queens[i as usize].row.row_id as i64), 
-                0, (n-1) as i64, false, None)
-            );
-
-            let cot_queen = CotQueen {
-                queen_id: queen_id,
-                row_id: planning_row_id,
-                column_id: column_id,
-
-            };
-            let cot_queen = EntityVariants::CotQueen(cot_queen);
-            cot_queens.push(cot_queen);
-        }
-
-        let mut nqueens_cotwin = Cotwin::new();
-        nqueens_cotwin.add_planning_entities("queens".to_string(), cot_queens);
-
-        let score_calculator = NQueensScoreCalculator::new();
-        nqueens_cotwin.add_score_calculator(score_calculator);
-
-        return nqueens_cotwin;
-
-    }*/
-
 }
 
 unsafe impl Send for CotwinBuilder {}

@@ -5,6 +5,7 @@ use crate::score_calculation::score_requesters::VariablesManager;
 use ndarray::Array1;
 use std::ops::AddAssign;
 use std::fmt::Debug;
+use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 
 pub trait MetaheuristicBaseTrait<ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
@@ -21,4 +22,8 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         current_population: &Vec<Individual<ScoreType>>, 
         candidates: &Vec<Individual<ScoreType>>
     ) -> Vec<Individual<ScoreType>>;
+
+    fn get_metaheuristic_kind(&self) -> MetaheuristicKind;
+
+    fn get_metaheuristic_name(&self) -> MetaheuristicNames;
 }
