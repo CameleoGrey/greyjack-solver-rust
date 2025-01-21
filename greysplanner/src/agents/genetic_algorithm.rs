@@ -8,12 +8,13 @@ use crate::cotwin::CotwinEntityTrait;
 use crate::cotwin::Cotwin;
 use std::ops::AddAssign;
 use std::fmt::Debug;
+use serde::Serialize;
 
 
 #[derive(Clone)]
 pub struct GeneticAlgorithm<ScoreType>
 where
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send + Serialize{
     population_size: usize, 
     crossover_probability: f64, 
     mutation_rate_multiplier: Option<f64>, 
@@ -25,7 +26,7 @@ where
 
 impl<ScoreType> GeneticAlgorithm<ScoreType>
 where
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send + Serialize{
     
     pub fn new (
         population_size: usize, 

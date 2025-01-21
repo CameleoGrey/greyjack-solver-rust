@@ -161,6 +161,9 @@ name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bumpalo"
@@ -550,8 +553,9 @@ dependencies = [
  "rand",
  "rand_distr",
  "rayon",
+ "serde",
+ "serde_json",
  "threadpool",
- "tokio",
 ]
 
 [[package]]
@@ -869,7 +873,8 @@ dependencies = [
  "polars",
  "rand",
  "rand_distr",
- "tokio",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1152,6 +1157,7 @@ dependencies = [
  "rand_distr",
  "rayon",
  "regex",
+ "serde",
  "strum_macros",
  "thiserror",
  "version_check",
@@ -1420,6 +1426,7 @@ dependencies = [
  "indexmap",
  "polars-error",
  "polars-utils",
+ "serde",
  "version_check",
 ]
 
@@ -1517,6 +1524,7 @@ dependencies = [
  "rand",
  "raw-cpuid",
  "rayon",
+ "serde",
  "stacker",
  "sysinfo",
  "version_check",
@@ -1765,9 +1773,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.134"
+version = "1.0.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d00f4175c42ee48b15416f6193a959ba3a0d67fc699a0db9ad12df9f83991c7d"
+checksum = "930cfb6e6abf99298aaad7d29abbef7a9999a9a8806a40088f55f0dcec03146b"
 dependencies = [
  "itoa",
  "memchr",

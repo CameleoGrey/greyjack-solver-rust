@@ -1,6 +1,6 @@
 
 
-use crate::variables::PlanningVariablesTypes;
+use crate::{agents::base::Individual, variables::PlanningVariablesTypes};
 use crate::variables::PlanningVariablesTypes::*;
 use polars::prelude::*;
 use ndarray::Array1;

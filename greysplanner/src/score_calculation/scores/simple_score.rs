@@ -3,8 +3,9 @@
 use crate::score_calculation::scores::ScoreTrait;
 use std::cmp::Ordering;
 use std::ops::{Add, AddAssign};
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct SimpleScore {
     score_value: f64
 }

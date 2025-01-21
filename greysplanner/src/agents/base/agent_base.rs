@@ -18,11 +18,15 @@ use std::ops::AddAssign;
 use crossbeam_channel::*;
 use ndarray::Array1;
 use chrono::*;
+use polars::datatypes::AnyValue;
+use serde::{Serialize};
+use serde_json::json;
+use serde_json::Value;
 
 pub struct Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
 
     pub migration_rate: f64, 
     pub migration_frequency: usize, 
@@ -33,6 +37,7 @@ where
     pub population: Vec<Individual<ScoreType>>,
     pub agent_top_individual: Individual<ScoreType>,
     pub global_top_individual: Arc<Mutex<Individual<ScoreType>>>,
+    pub global_top_json: Arc<Mutex<Value>>,
     
     pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
     pub score_precision: Option<Vec<usize>>,
@@ -54,7 +59,7 @@ impl<EntityVariants, UtilityObjectVariants, ScoreType>
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
 
     pub fn new(
         migration_rate: f64, 
@@ -78,6 +83,7 @@ where
             population: Vec::new(),
             agent_top_individual: Individual::new(Array1::default(1), ScoreType::get_stub_score()),
             global_top_individual: global_top_individual,
+            global_top_json: Arc::new(Mutex::new(Value::Null)),
             
             
             score_requester: score_requester,
@@ -148,13 +154,11 @@ where
             }
             
             let mut global_top_individual = self.global_top_individual.lock().unwrap();
+            let mut global_top_json = self.global_top_json.lock().unwrap();
             if self.agent_top_individual.score < global_top_individual.score {
                 *global_top_individual = self.agent_top_individual.clone();
+                *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
             }
-            /*self.comparisons_to_global_count += 1;
-            if self.comparisons_to_global_count % self.alive_agents_count == 0 {
-                println!("{}, {}, {}, {:?}", self.agent_id, step_id, self.comparisons_to_global_count, global_top_individual.score);
-            }*/
 
             match self.agent_status {
                 AgentStatuses::Alive => {
@@ -305,6 +309,14 @@ where
         Ok(0)
 
     }
+
+    pub fn convert_to_json(&self, individual: Individual<ScoreType>) -> Value {
+
+        let inverse_transformed_variables = self.score_requester.variables_manager.inverse_transform_variables(&individual.variable_values);
+        let individual_json = json!((inverse_transformed_variables, individual.score));
+        return individual_json;
+
+    }
         
 }
 
@@ -312,4 +324,4 @@ unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {}
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {}

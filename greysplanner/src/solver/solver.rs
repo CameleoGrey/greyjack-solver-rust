@@ -15,22 +15,32 @@ use crossbeam_channel::*;
 use ndarray::Array1;
 use rayon::prelude::*;
 use std::env;
+use serde::Serialize;
+use serde_json::Value;
 
 pub struct Solver {}
 
 impl Solver {
 
     pub fn solve<DomainType, CotwinBuilder, EntityVariants, UtilityObjectVariants, ScoreType> (
-        domain: DomainType,
+        domain: &DomainType,
         cotwin_builder: CotwinBuilder,
         agent_builders: Vec<AgentBuildersVariants<ScoreType>>,
         score_precision: Vec<u64>
-    )
+    ) -> Value
     where
     DomainType: Clone + Send,
     CotwinBuilder: CotwinBuilderTrait<DomainType, EntityVariants, UtilityObjectVariants, ScoreType> + Clone + Send,
     EntityVariants: CotwinEntityTrait + Send,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send + Serialize {
+
+        /* 
+            Returns serde_json::Value to use it as json string (solution.to_string()) to send via http or
+            parse it directly by serde_json::from_value(solution).unwrap() and use it in DomainUpdater.
+            Note: serde_json::from_value needs type annotation. For solution it's (Vec<(String, AnyValue)>, ScoreType),
+            where ScoreType is current score type used for task.
+        */
+
 
         if score_precision.len() != ScoreType::precision_len() {
             panic!("Invalid score_precision. Suggest: vec![a] for SimpleScore, vec![a, b] for HardSoft, vec![a, b, c] for HardMediumSoft.");
@@ -44,8 +54,9 @@ impl Solver {
         let mut round_robin_status_vec: Vec<AgentStatuses> = Vec::new();
         let mut agents_updates_senders: Vec<Sender<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let mut agents_updates_receivers: Vec<Receiver<AgentToAgentUpdate<ScoreType>>> = Vec::new();
-        let mut global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
-        let mut global_top_individual = Arc::new(Mutex::new(global_top_individual));
+        let global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
+        let global_top_individual = Arc::new(Mutex::new(global_top_individual));
+        let global_top_json = Arc::new(Mutex::new(Value::Null));
         for i in 0..n_jobs {
             round_robin_status_vec.insert(i, AgentStatuses::Alive);
             let (agent_i_updates_sender, agent_i_updates_receiver): (Sender<AgentToAgentUpdate<ScoreType>>, Receiver<AgentToAgentUpdate<ScoreType>>) = bounded(1);
@@ -74,10 +85,15 @@ impl Solver {
             agent_i.updates_to_agent_sender = Some(us_i);
             agent_i.updates_for_agent_receiver = Some(rc_i);
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
+            agent_i.global_top_json = Arc::clone(&global_top_json);
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();
         });
+
+
+        let solution_json =  global_top_json.lock().unwrap().clone();
+        return solution_json;
 
     }
 
