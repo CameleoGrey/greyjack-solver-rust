@@ -2002,33 +2002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "try-chrono"
-version = "0.1.0"
-dependencies = [
- "chrono",
-]
-
-[[package]]
-name = "try-module-system"
-version = "0.1.0"
-
-[[package]]
-name = "try-string"
-version = "0.1.0"
-
-[[package]]
-name = "try-threads"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "threadpool",
-]
-
-[[package]]
-name = "try-vector"
-version = "0.1.0"
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,8 +1,6 @@
 [workspace]
 resolver = "1"
-members = [ "try-vector",
-	"try-module-system", "try-string", "try-threads", "greysplanner", "nqueens", "try-chrono",
-]
+members = ["greysplanner", "nqueens",]
 
 #[profile.release]
 #lto = true
