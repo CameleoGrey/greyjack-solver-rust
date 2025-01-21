@@ -205,6 +205,8 @@ where
         if is_accomplish {
             self.agent_status = AgentStatuses::Dead;
             self.round_robin_status_vec[self.agent_id] = self.agent_status;
+
+            //println!("{}", self.step_id);
         }
     }
 

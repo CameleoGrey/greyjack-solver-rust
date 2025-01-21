@@ -19,7 +19,7 @@ use serde_json;
 
 fn main() {
 
-    let mut nqueens_domain = DomainGenerator::generate_domain(4096, 45);
+    let mut nqueens_domain = DomainGenerator::generate_domain(256, 45);
     let nqueens_cotwin_builder = CotwinBuilder::new();
     //println!("{}", nqueens_domain);
 
@@ -27,11 +27,11 @@ fn main() {
     let n_jobs = 10;
     let mut agent_builders = Vec::new();
     for i in 0..n_jobs {
-        let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(0.0)));
-        //let termination_strategy = TSL(TimeSpentLimit::new(180*1000));
+        //let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(0.0)));
+        let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
         //let termination_strategy = StL(StepsLimit::new(20));
         //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
-        let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.00001, 1, termination_strategy));
+        let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.00001, 10, termination_strategy));
         agent_builders.push(agent_builder);
     }
 

@@ -24,6 +24,9 @@ where
         pub var_name_to_df_col_names: HashMap<String, (String, String)>,
         pub var_name_to_vec_id_map: HashMap<String, usize>,
         pub vec_id_to_var_name_map: HashMap<usize, String>,
+        pub df_column_var_ids: HashMap<(String, String), Vec<usize>>,
+        pub var_id_to_df_name: Vec<String>,
+        pub var_id_to_col_name: Vec<String>,
 
         pub planning_entities_column_map: HashMap<String, Vec<String>>,
         pub problem_facts_column_map: HashMap<String, Vec<String>>,
@@ -63,6 +66,9 @@ where
                 var_name_to_df_col_names: HashMap::new(),
                 var_name_to_vec_id_map: var_name_to_vec_id_map,
                 vec_id_to_var_name_map: vec_id_to_var_name_map,
+                df_column_var_ids: HashMap::new(),
+                var_id_to_df_name: Vec::new(),
+                var_id_to_col_name: Vec::new(),
 
             };
 
@@ -228,47 +234,64 @@ where
             return (df_name, column_name);
         }
 
+        /*fn build_var_id_to_df_name_vec() -> Vec<String>;
+
+        fn build_var_id_to_col_name_vec() -> Vec<String>;
+
+        fn build_empty_group_data_map() -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>>;*/
+
+        // df_column_var_ids -> HashMap<(String, String), Vec<usize>>
+
+        fn build_var_mappings(&mut self) -> HashMap<(String, String), Vec<usize>> {
+            let variable_names= self.variables_manager.get_variables_names_vec();
+            let mut df_column_var_ids: HashMap<(String, String), Vec<usize>> = HashMap::new();
+            variable_names.iter().enumerate().for_each(|(i, var_name)| {
+                let (df_name, column_name) = &Self::get_df_column_name(var_name.clone());
+
+                self.var_id_to_df_name.push(df_name.clone());
+                self.var_id_to_col_name.push(column_name.clone());
+
+                if df_column_var_ids.contains_key(&(df_name.clone(), column_name.clone())) == false {
+                    df_column_var_ids.insert((df_name.clone(), column_name.clone()), Vec::new());
+                } else {
+                    df_column_var_ids.get_mut(&(df_name.clone(), column_name.clone())).unwrap().push(i);
+                }
+
+            });
+
+            return df_column_var_ids;
+        }
+
         fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<(AnyValue<'a>)>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
+
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            if self.df_column_var_ids.len() == 0 {
+                self.df_column_var_ids = self.build_var_mappings();
+            }
 
             let mut group_data_map: HashMap<String, HashMap<String, Vec<AnyValue>>> = HashMap::new();
             let variable_names= self.variables_manager.get_variables_names_vec();
             let n_variables = variable_names.len();
 
-            // fill group_data_map by decoded variables values
+            for (df_name, col_name) in self.df_column_var_ids.keys() {
+                group_data_map.insert(df_name.clone(), HashMap::new());
+                group_data_map.get_mut(df_name).unwrap().insert(col_name.clone(), Vec::new());
+            }
+
             let samples_count = samples_vec.len();
             for i in 0..samples_count {
-                let inverted_variables = &samples_vec[i];
                 for j in 0..n_variables {
-
-                    let variable_value = &inverted_variables[j];
-                    let variable_name = &variable_names[j];
-                    
-                    if self.var_name_to_df_col_names.contains_key(variable_name) == false {
-                        let extracted_names = &Self::get_df_column_name(variable_name.clone());
-                        self.var_name_to_df_col_names.insert(variable_name.clone(), (extracted_names.0.clone(), extracted_names.1.clone()));
-                    } 
-                    
-                    // df_col_name = (df_name, column_name)
-                    let df_col_name: &(String, String) = &self.var_name_to_df_col_names[variable_name];
-                    if group_data_map.contains_key(&df_col_name.0) == false {
-                        group_data_map.insert(df_col_name.0.clone(), HashMap::new());
-                    }
-                    if group_data_map[&df_col_name.0].contains_key(&df_col_name.1) == false {
-                        group_data_map.get_mut(&df_col_name.0).unwrap().insert(df_col_name.1.clone(), Vec::new());
-                    }
-
                     group_data_map
-                    .get_mut(&df_col_name.0).unwrap()
-                    .get_mut(&df_col_name.1).unwrap()
-                    .push(variable_value.clone());
+                    .get_mut(&self.var_id_to_df_name[j]).unwrap()
+                    .get_mut(&self.var_id_to_col_name[j]).unwrap()
+                    .push(samples_vec[i][j].clone());
                 }
             }
-            
+            //println!("fill map by data time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+
+            //let start_time = chrono::Utc::now().timestamp_millis();
             // add correct sample ids
-            let mut df_names: Vec<String> = Vec::new();
-            for df_name in group_data_map.keys() {
-                df_names.push(df_name.clone());
-            }
+            let df_names: Vec<String> = group_data_map.keys().map(|x| x.clone()).collect();
             for df_name in df_names {
                 let group_keys = group_data_map.get(&df_name).unwrap().keys().into_vec();
                 let first_group_key = group_keys.get(0).unwrap().as_str();
@@ -283,6 +306,7 @@ where
                 }
                 group_data_map.get_mut(&df_name).unwrap().insert("sample_id".to_string(), correct_sample_ids);
             }
+            //println!("correct sample ids time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             return group_data_map;
 
