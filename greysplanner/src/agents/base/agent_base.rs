@@ -52,6 +52,7 @@ where
     pub updates_to_agent_sender: Option<Sender<AgentToAgentUpdate<ScoreType>>>,
     pub updates_for_agent_receiver: Option<Receiver<AgentToAgentUpdate<ScoreType>>>,
     pub solving_start: i64,
+    pub step_id: u64,
 
 }
 
@@ -97,7 +98,8 @@ where
             updates_for_agent_receiver: None, // setups by Solver
             alive_agents_count: 1, // setups by Solver
             comparisons_to_global_count: 0,
-            solving_start: Utc::now().timestamp_millis()
+            solving_start: Utc::now().timestamp_millis(),
+            step_id: 0,
         }
     }
 
@@ -110,7 +112,7 @@ where
         self.update_agent_status();
         self.update_alive_agents_count();
         self.solving_start = Utc::now().timestamp_millis();
-        let mut step_id:u64 = 0;
+        self.step_id = 0;
 
         loop {
 
@@ -118,7 +120,7 @@ where
                 AgentStatuses::Alive => self.step(),
                 AgentStatuses::Dead => (),
             }
-            step_id += 1;
+            self.step_id += 1;
             
             self.population.sort();
             self.update_top_individual();
@@ -153,23 +155,7 @@ where
                 self.steps_to_send_updates = self.migration_frequency;
             }
             
-            let mut global_top_individual = self.global_top_individual.lock().unwrap();
-            let mut global_top_json = self.global_top_json.lock().unwrap();
-            if self.agent_top_individual.score < global_top_individual.score {
-                *global_top_individual = self.agent_top_individual.clone();
-                *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
-            }
-
-            match self.agent_status {
-                AgentStatuses::Alive => {
-                    let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                    println!(
-                        "{}, Agent: {}, Steps: {}, Global best score: {:?}, Solving time: {}", 
-                        Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, step_id, global_top_individual.score, solving_time
-                    );
-                },
-                _ => ()
-            }
+            self.update_global_top();
         }
 
     }
@@ -312,6 +298,26 @@ where
 
         Ok(0)
 
+    }
+
+    fn update_global_top(&mut self) {
+        let mut global_top_individual = self.global_top_individual.lock().unwrap();
+            let mut global_top_json = self.global_top_json.lock().unwrap();
+            if self.agent_top_individual.score < global_top_individual.score {
+                *global_top_individual = self.agent_top_individual.clone();
+                *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
+            }
+            
+            match self.agent_status {
+                AgentStatuses::Alive => {
+                    let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
+                    println!(
+                        "{}, Agent: {}, Steps: {}, Global best score: {:?}, Solving time: {}", 
+                        Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time
+                    );
+                },
+                _ => ()
+            }
     }
 
     pub fn convert_to_json(&self, individual: Individual<ScoreType>) -> Value {

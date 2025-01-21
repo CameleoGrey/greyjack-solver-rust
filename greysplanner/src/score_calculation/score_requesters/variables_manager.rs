@@ -134,25 +134,31 @@ impl VariablesManager {
         return values_array;
     }
 
-    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> Vec<(String, AnyValue<'a>)> {
+    pub fn inverse_transform_variables<'a>(&self, values_array: &Array1<f64>) -> Vec<(AnyValue<'a>)> {
 
-        let mut values_map: Vec<(String, AnyValue<'a>)> = Vec::new();
 
-        for i in 0..self.variables_count {
-            let variable = &self.variables_vec[i];
+        let values_map: Vec<AnyValue<'a>> =
+        self.variables_vec.iter().zip(values_array.iter()).map(|(variable, x)| {
             match variable {
-                PlanningVariablesTypes::GPFloatVar(x) => {
-                    let inverted_value = x.inverse_transform(values_array[i]);
-                    values_map.push( (x.name.clone() , AnyValue::Float64(inverted_value)));
+                PlanningVariablesTypes::GPFloatVar(float_var) => {
+                    AnyValue::Float64(float_var.inverse_transform(*x))
                 }
-                PlanningVariablesTypes::GPIntegerVar(x) => {
-                    let inverted_value = x.inverse_transform(values_array[i]);
-                    values_map.push( (x.name.clone() , AnyValue::Int64(inverted_value)));
+                PlanningVariablesTypes::GPIntegerVar(int_var) => {
+                    AnyValue::Int64(int_var.inverse_transform(*x))
                 }
             }
-        }
+        }).collect();
 
         return values_map;
+    }
+
+    pub fn get_variables_names_vec(&self) -> Vec<String> {
+        self.variables_vec.iter().map(|variable| {
+            match variable {
+                PlanningVariablesTypes::GPFloatVar(float_var) => float_var.name.clone(),
+                PlanningVariablesTypes::GPIntegerVar(int_var) => int_var.name.clone()
+            }
+        }).collect()
     }
 
     pub fn fix_variables(&self, values_array: &mut Array1<f64>, ids_to_fix: Option<Vec<usize>>) {

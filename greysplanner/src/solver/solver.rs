@@ -86,13 +86,13 @@ impl Solver {
                 AgentBuildersVariants::GA(ga_builder) => agent_i = ga_builder.build_agent(cotwin_i)
             }
             agent_i.agent_id = id_i;
+            agent_i.score_precision = sp;
             agent_i.round_robin_status_vec = rrs_i;
             agent_i.alive_agents_count = n_jobs;
             agent_i.updates_to_agent_sender = Some(us_i);
             agent_i.updates_for_agent_receiver = Some(rc_i);
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
             agent_i.global_top_json = Arc::clone(&global_top_json);
-            agent_i.score_precision = sp;
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();

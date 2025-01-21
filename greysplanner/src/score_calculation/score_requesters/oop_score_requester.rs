@@ -147,8 +147,6 @@ where
                     column_names.push(column_name.clone());
                 }
 
-                println!("{}", df_name);
-
                 let entity_group = &entity_groups[df_name];
                 let entities_count = entity_group.len();
 
@@ -230,17 +228,20 @@ where
             return (df_name, column_name);
         }
 
-        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<(String, AnyValue<'a>)>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
+        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<(AnyValue<'a>)>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
 
             let mut group_data_map: HashMap<String, HashMap<String, Vec<AnyValue>>> = HashMap::new();
+            let variable_names= self.variables_manager.get_variables_names_vec();
+            let n_variables = variable_names.len();
 
             // fill group_data_map by decoded variables values
             let samples_count = samples_vec.len();
             for i in 0..samples_count {
-                let decoded_variables_map = &samples_vec[i];
-                for variable in decoded_variables_map {
+                let inverted_variables = &samples_vec[i];
+                for j in 0..n_variables {
 
-                    let variable_name = &variable.0;
+                    let variable_value = &inverted_variables[j];
+                    let variable_name = &variable_names[j];
                     
                     if self.var_name_to_df_col_names.contains_key(variable_name) == false {
                         let extracted_names = &Self::get_df_column_name(variable_name.clone());
@@ -259,7 +260,7 @@ where
                     group_data_map
                     .get_mut(&df_col_name.0).unwrap()
                     .get_mut(&df_col_name.1).unwrap()
-                    .push(variable.1.clone());
+                    .push(variable_value.clone());
                 }
             }
             
@@ -289,13 +290,21 @@ where
 
         pub fn request_score<'a>(&mut self, samples: &Vec<Array1<f64>>) -> Vec<ScoreType>{
 
-            let candidates:Vec<Vec<(String, AnyValue<'a>)>> = samples.iter().map(|x| self.variables_manager.inverse_transform_variables(&x)).collect();
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            let candidates:Vec<Vec<(AnyValue<'a>)>> = samples.iter().map(|x| self.variables_manager.inverse_transform_variables(&x)).collect();
+            //println!("inverse transform time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+            //let start_time = chrono::Utc::now().timestamp_millis();
             let group_data_map = self.build_group_data_map(&candidates);
+            //println!("build group data map time: {}", chrono::Utc::now().timestamp_millis() - start_time );
             let samples_count = candidates.len();
+            //let start_time = chrono::Utc::now().timestamp_millis();
             self.update_dfs_for_scoring(group_data_map, samples_count);
+            //println!("updatimg dfs time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
+            //let start_time = chrono::Utc::now().timestamp_millis();
             let score_batch = &self.cotwin.get_score(&self.planning_entity_dfs, &self.problem_fact_dfs);
             let score_batch = score_batch.to_owned();
+            //println!("query time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             return score_batch;
         }
