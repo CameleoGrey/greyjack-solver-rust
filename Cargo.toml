@@ -2,7 +2,7 @@
 resolver = "1"
 members = ["greysplanner", "nqueens",]
 
-#[profile.release]
+[profile.release]
 #lto = true
 #codegen-units = 1
 #debug = true

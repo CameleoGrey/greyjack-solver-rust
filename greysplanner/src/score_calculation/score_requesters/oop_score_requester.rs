@@ -27,12 +27,15 @@ where
         pub df_column_var_ids: HashMap<(String, String), Vec<usize>>,
         pub var_id_to_df_name: Vec<String>,
         pub var_id_to_col_name: Vec<String>,
+        
+        pub cached_sample_id_vectors: HashMap<String, Vec<u64>>,
+        pub cached_sample_size: usize,
 
         pub planning_entities_column_map: HashMap<String, Vec<String>>,
         pub problem_facts_column_map: HashMap<String, Vec<String>>,
         pub planning_entity_dfs: HashMap<String, DataFrame>,
         pub problem_fact_dfs: HashMap<String, DataFrame>,
-        pub dfs_for_scoring: HashMap<String, DataFrame>,
+        pub raw_dfs: HashMap<String, DataFrame>,
 }
 
 impl<EntityVariants, UtilityObjectVariants, ScoreType> 
@@ -58,7 +61,7 @@ where
                 problem_facts_column_map: problem_facts_column_map,
                 planning_entity_dfs: planning_entity_dfs,
                 problem_fact_dfs: problem_fact_dfs,
-                dfs_for_scoring: dfs_for_scoring,
+                raw_dfs: dfs_for_scoring,
 
                 cotwin: cotwin,
                 variables_manager: variables_manager,
@@ -69,6 +72,9 @@ where
                 df_column_var_ids: HashMap::new(),
                 var_id_to_df_name: Vec::new(),
                 var_id_to_col_name: Vec::new(),
+
+                cached_sample_id_vectors: HashMap::new(),
+                cached_sample_size: 999_999_999
 
             };
 
@@ -197,17 +203,14 @@ where
         fn update_dfs_for_scoring(&mut self, group_data_map: HashMap<String, HashMap<String, Vec<AnyValue>>>, samples_count: usize) {
 
             for df_name in group_data_map.keys() {
-                let mut current_df = self.dfs_for_scoring[df_name].clone();
-
-                let df_size = current_df.size();
-                let needful_rows_count  = samples_count * df_size;
-                if df_size != needful_rows_count {
+                let mut current_df = self.planning_entity_dfs[df_name].clone();
+                let needful_rows_count  = samples_count * self.raw_dfs[df_name].size();
+                if current_df.size() != needful_rows_count {
                     let mut new_df_parts: Vec<LazyFrame> = Vec::new();
                     for i in 0..samples_count {
-                        new_df_parts.push(current_df.clone().lazy());
+                        new_df_parts.push(self.raw_dfs[df_name].clone().lazy());
                     }
                     current_df = concat(new_df_parts, UnionArgs::default()).unwrap().collect().unwrap();
-
                 }
 
                 for column_name in group_data_map[df_name].keys() {
@@ -234,14 +237,6 @@ where
             return (df_name, column_name);
         }
 
-        /*fn build_var_id_to_df_name_vec() -> Vec<String>;
-
-        fn build_var_id_to_col_name_vec() -> Vec<String>;
-
-        fn build_empty_group_data_map() -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>>;*/
-
-        // df_column_var_ids -> HashMap<(String, String), Vec<usize>>
-
         fn build_var_mappings(&mut self) -> HashMap<(String, String), Vec<usize>> {
             let variable_names= self.variables_manager.get_variables_names_vec();
             let mut df_column_var_ids: HashMap<(String, String), Vec<usize>> = HashMap::new();
@@ -253,9 +248,9 @@ where
 
                 if df_column_var_ids.contains_key(&(df_name.clone(), column_name.clone())) == false {
                     df_column_var_ids.insert((df_name.clone(), column_name.clone()), Vec::new());
-                } else {
-                    df_column_var_ids.get_mut(&(df_name.clone(), column_name.clone())).unwrap().push(i);
                 }
+                    
+                df_column_var_ids.get_mut(&(df_name.clone(), column_name.clone())).unwrap().push(i);
 
             });
 
@@ -270,15 +265,14 @@ where
             }
 
             let mut group_data_map: HashMap<String, HashMap<String, Vec<AnyValue>>> = HashMap::new();
-            let variable_names= self.variables_manager.get_variables_names_vec();
-            let n_variables = variable_names.len();
+            let n_variables = self.variables_manager.variables_count;
 
             for (df_name, col_name) in self.df_column_var_ids.keys() {
                 group_data_map.insert(df_name.clone(), HashMap::new());
                 group_data_map.get_mut(df_name).unwrap().insert(col_name.clone(), Vec::new());
             }
 
-            let samples_count = samples_vec.len();
+            /*let samples_count = samples_vec.len();
             for i in 0..samples_count {
                 for j in 0..n_variables {
                     group_data_map
@@ -286,25 +280,58 @@ where
                     .get_mut(&self.var_id_to_col_name[j]).unwrap()
                     .push(samples_vec[i][j].clone());
                 }
-            }
+            }*/
+
+            // much faster
+            let stub_collection_1: () = self.df_column_var_ids.iter().map(|(df_col_name, var_ids)| {
+                let stub_collection_2: () = samples_vec.iter().map(|sample_vec| {
+                    let mut current_sample_column: Vec<AnyValue> = var_ids.iter().map(|i| sample_vec[*i].clone()).collect();
+                    group_data_map
+                    .get_mut(&df_col_name.0).unwrap()
+                    .get_mut(&df_col_name.1).unwrap()
+                    .append(&mut current_sample_column);
+                }).collect();
+            }).collect();
+
             //println!("fill map by data time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             //let start_time = chrono::Utc::now().timestamp_millis();
             // add correct sample ids
-            let df_names: Vec<String> = group_data_map.keys().map(|x| x.clone()).collect();
-            for df_name in df_names {
-                let group_keys = group_data_map.get(&df_name).unwrap().keys().into_vec();
-                let first_group_key = group_keys.get(0).unwrap().as_str();
-                let updated_df_column_len = group_data_map.get(&df_name).unwrap().get(first_group_key).unwrap().len();
-                let samples_count = samples_vec.len();
-                let true_df_len = updated_df_column_len / samples_count;
-                let mut correct_sample_ids: Vec<AnyValue> = Vec::new();
-                for i in 0..samples_count {
-                    for j in 0..true_df_len {
-                        correct_sample_ids.push(AnyValue::UInt64(i as u64));
+            if samples_vec.len() != self.cached_sample_size {
+                let df_names: Vec<String> = group_data_map.keys().map(|x| x.clone()).collect();
+                for df_name in df_names {
+                    let group_keys = group_data_map.get(&df_name).unwrap().keys().into_vec();
+                    let first_group_key = group_keys.get(0).unwrap().as_str();
+                    let updated_df_column_len = group_data_map.get(&df_name).unwrap().get(first_group_key).unwrap().len();
+                    let samples_count = samples_vec.len();
+                    let true_df_len = updated_df_column_len / samples_count;
+                    let mut correct_sample_ids: Vec<AnyValue> = Vec::new();
+                    for i in 0..samples_count {
+                        for j in 0..true_df_len {
+                            correct_sample_ids.push(AnyValue::UInt64(i as u64));
+                        }
                     }
+
+                    self.cached_sample_size = samples_vec.len();
+                    self.cached_sample_id_vectors.insert(
+                        df_name.clone(), 
+                        correct_sample_ids.iter().map(|vec_value| {
+                            match vec_value {
+                                AnyValue::UInt64(i) => i.clone() as u64,
+                                _ => panic!("Broken type"),
+                                
+                            }
+                        }).collect());
+
+                    group_data_map.get_mut(&df_name).unwrap().insert("sample_id".to_string(), correct_sample_ids);
                 }
-                group_data_map.get_mut(&df_name).unwrap().insert("sample_id".to_string(), correct_sample_ids);
+            } else {
+                for df_name in self.cached_sample_id_vectors.keys() {
+                    group_data_map.get_mut(df_name).unwrap().insert(
+                        "sample_id".to_string(), 
+                        self.cached_sample_id_vectors.get(df_name).unwrap().iter().map(|x| AnyValue::UInt64(*x)).collect()
+                    );
+                }
             }
             //println!("correct sample ids time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
