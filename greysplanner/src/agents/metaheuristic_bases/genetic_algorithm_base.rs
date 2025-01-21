@@ -117,8 +117,23 @@ impl GeneticAlgorithmBase {
             Some(discrete_ids) => discrete_ids.into_iter().for_each(|i| weights[*i] = math_utils::rint(weights[*i]))
         }
 
-        let new_candidate_1 = &candidate_1 * &weights + &candidate_2 * (1.0 - &weights);
-        let new_candidate_2 = &candidate_2 * &weights + &candidate_1 * (1.0 - &weights);
+        let new_candidate_1: Array1<f64> = 
+            weights.iter()
+            .zip(candidate_1.iter())
+            .zip(candidate_2.iter())
+            .map(|((w, c_1), c_2)| {
+                c_1 * w + c_2 * (1.0 - w)
+            })
+            .collect();
+
+        let new_candidate_2: Array1<f64> = 
+            weights.iter()
+            .zip(candidate_1.iter())
+            .zip(candidate_2.iter())
+            .map(|((w, c_1), c_2)| {
+                c_2 * w + c_1 * (1.0 - w)
+            })
+            .collect();
 
         return (new_candidate_1, new_candidate_2);
     }

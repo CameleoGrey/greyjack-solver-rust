@@ -314,7 +314,7 @@ where
                 AgentStatuses::Alive => {
                     let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
                     println!(
-                        "{}, Agent: {}, Steps: {}, Global best score: {:?}, Solving time: {}", 
+                        "{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
                         Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time
                     );
                 },
