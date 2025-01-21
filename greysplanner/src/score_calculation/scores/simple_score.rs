@@ -1,6 +1,7 @@
 
 
 use crate::score_calculation::scores::ScoreTrait;
+use crate::utils::math_utils::round;
 use std::cmp::Ordering;
 use std::ops::{Add, AddAssign};
 use serde::{Serialize, Deserialize};
@@ -52,6 +53,10 @@ impl ScoreTrait for SimpleScore {
 
     fn precision_len() -> usize {
         1
+    }
+
+    fn round(&mut self, precision: &Vec<u64>) {
+        self.score_value = round(self.score_value, precision[0]);
     }
 }
 

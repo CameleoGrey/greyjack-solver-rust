@@ -45,7 +45,7 @@ impl DomainGenerator {
             queens.push(current_queen);
         }
 
-        let chess_board = ChessBoard::new(n_queens, positions_map, queens);
+        let chess_board = ChessBoard::new(n_queens, queens);
         return chess_board;
 
         

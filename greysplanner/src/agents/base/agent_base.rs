@@ -40,7 +40,7 @@ where
     pub global_top_json: Arc<Mutex<Value>>,
     
     pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
-    pub score_precision: Option<Vec<usize>>,
+    pub score_precision: Option<Vec<u64>>,
     pub metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>,
     
     pub steps_to_send_updates: usize,
@@ -238,7 +238,11 @@ where
         //println!("sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
         //let start_time = chrono::Utc::now().timestamp_millis();
-        let scores = self.score_requester.request_score(&samples);
+        let mut scores = self.score_requester.request_score(&samples);
+        match &self.score_precision {
+            Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+            None => ()
+        }
         //println!("scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
         
         //let start_time = chrono::Utc::now().timestamp_millis();

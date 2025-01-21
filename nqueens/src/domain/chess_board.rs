@@ -9,15 +9,13 @@ use super::Position;
 #[derive(Clone)]
 pub struct ChessBoard {
     pub n: u64,
-    pub positions_map: HashMap<String, Position>,
     pub queens: Vec<Queen>
 }
 
 impl ChessBoard {
-    pub fn new(n: u64, positions_map: HashMap<String, Position>, queens: Vec<Queen>) -> Self {
+    pub fn new(n: u64, queens: Vec<Queen>) -> Self {
         ChessBoard {
             n: n,
-            positions_map: positions_map,
             queens: queens
         }
     }

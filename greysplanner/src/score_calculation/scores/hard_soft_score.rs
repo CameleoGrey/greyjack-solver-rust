@@ -1,6 +1,7 @@
 
 
 use crate::score_calculation::scores::ScoreTrait;
+use crate::utils::math_utils::round;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::ops::{Add, AddAssign};
@@ -65,6 +66,11 @@ impl ScoreTrait for HardSoftScore {
 
     fn precision_len() -> usize {
         2
+    }
+
+    fn round(&mut self, precision: &Vec<u64>) {
+        self.hard_score = round(self.hard_score, precision[0]);
+        self.soft_score = round(self.soft_score, precision[1]);
     }
 }
 

@@ -11,6 +11,7 @@ use greysplanner::agents::GeneticAlgorithm;
 use greysplanner::agents::AgentBuildersVariants::*;
 use greysplanner::agents::termination_strategies::*;
 use greysplanner::agents::termination_strategies::TerminationStrategiesVariants::*;
+use greysplanner::utils::math_utils::*;
 use persistence::DomainUpdater;
 use persistence::{CotwinBuilder, DomainGenerator};
 use polars::datatypes::AnyValue;
@@ -34,7 +35,7 @@ fn main() {
         agent_builders.push(agent_builder);
     }
 
-    let solution = Solver::solve(&nqueens_domain, nqueens_cotwin_builder, agent_builders, vec![0]);
+    let solution = Solver::solve(&nqueens_domain, nqueens_cotwin_builder, agent_builders, None);
 
     DomainUpdater::update_domain(&mut nqueens_domain, solution);
     println!("{}", nqueens_domain);

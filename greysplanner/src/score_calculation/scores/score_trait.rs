@@ -14,4 +14,6 @@ pub trait ScoreTrait {
 
     #[inline]
     fn precision_len() -> usize;
+
+    fn round(&mut self, precision: &Vec<u64>);
 }

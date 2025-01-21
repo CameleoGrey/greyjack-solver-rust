@@ -41,3 +41,8 @@ where T: Clone {
 
     return chosen_objects;
 }
+
+pub fn round(value: f64, precision: u64) -> f64 {
+    let multiplier = (10.0 as f64).powf(precision as f64);
+    value.floor() + ((value - value.floor()) * multiplier).floor() / multiplier
+}

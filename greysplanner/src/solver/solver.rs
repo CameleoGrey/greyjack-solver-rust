@@ -26,7 +26,7 @@ impl Solver {
         domain: &DomainType,
         cotwin_builder: CotwinBuilder,
         agent_builders: Vec<AgentBuildersVariants<ScoreType>>,
-        score_precision: Vec<u64>
+        score_precision: Option<Vec<u64>>
     ) -> Value
     where
     DomainType: Clone + Send,
@@ -41,16 +41,21 @@ impl Solver {
             where ScoreType is current score type used for task.
         */
 
-
-        if score_precision.len() != ScoreType::precision_len() {
-            panic!("Invalid score_precision. Suggest: vec![a] for SimpleScore, vec![a, b] for HardSoft, vec![a, b, c] for HardMediumSoft.");
+        match &score_precision {
+            Some(precision) => {
+                if precision.len() != ScoreType::precision_len() {
+                    panic!("Invalid score_precision. Suggest: vec![a] for SimpleScore, vec![a, b] for HardSoft, vec![a, b, c] for HardMediumSoft.");
+                }
+            }
+            None => ()
         }
-        //self.setup_agents();
-        
+
         let n_jobs = agent_builders.len();
+
         let agent_ids:Vec<usize> = (0..n_jobs).collect();
         let domains: Vec<DomainType> = vec![domain.clone(); n_jobs];
         let cotwin_builders: Vec<CotwinBuilder> = vec![cotwin_builder.clone(); n_jobs];
+        let score_precisions = vec![score_precision; n_jobs];
         let mut round_robin_status_vec: Vec<AgentStatuses> = Vec::new();
         let mut agents_updates_senders: Vec<Sender<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let mut agents_updates_receivers: Vec<Receiver<AgentToAgentUpdate<ScoreType>>> = Vec::new();
@@ -73,7 +78,8 @@ impl Solver {
         .zip(agents_round_robin_status_clones.into_par_iter())
         .zip(agents_updates_senders.into_par_iter())
         .zip(agents_updates_receivers.into_par_iter())
-        .for_each(|((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i)| {
+        .zip(score_precisions.into_par_iter())
+        .for_each(|(((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp)| {
             let cotwin_i = cotwin_builder_i.build_cotwin(domain_i);
             let mut agent_i;
             match agent_builder_i {
@@ -86,6 +92,7 @@ impl Solver {
             agent_i.updates_for_agent_receiver = Some(rc_i);
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
             agent_i.global_top_json = Arc::clone(&global_top_json);
+            agent_i.score_precision = sp;
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();
