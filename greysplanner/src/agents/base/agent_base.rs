@@ -9,6 +9,7 @@ use crate::agents::base::Individual;
 use crate::agents::metaheuristic_bases::MetaheuristicBaseTrait;
 use crate::agents::metaheuristic_bases::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::cotwin::CotwinEntityTrait;
+use crate::solver::SolverLoggingLevels;
 use super::AgentToAgentUpdate;
 use super::AgentStatuses;
 use std::collections::HashMap;
@@ -53,6 +54,8 @@ where
     pub updates_for_agent_receiver: Option<Receiver<AgentToAgentUpdate<ScoreType>>>,
     pub solving_start: i64,
     pub step_id: u64,
+    pub logging_level: SolverLoggingLevels,
+    pub end_work_message_printed: bool,
 
 }
 
@@ -100,6 +103,8 @@ where
             comparisons_to_global_count: 0,
             solving_start: Utc::now().timestamp_millis(),
             step_id: 0,
+            logging_level: SolverLoggingLevels::Info,
+            end_work_message_printed: false,
         }
     }
 
@@ -205,6 +210,17 @@ where
         if is_accomplish {
             self.agent_status = AgentStatuses::Dead;
             self.round_robin_status_vec[self.agent_id] = self.agent_status;
+            
+            if self.end_work_message_printed == false {
+                match self.logging_level {
+                    SolverLoggingLevels::Silent => (),
+                    _ => {
+                        let end_work_message = format!("Agent {} has successfully terminated work. Now it's just transmitting updates between its neighbours until at least one agent is alive.", self.agent_id);
+                        println!("{}", end_work_message);
+                    }
+                }
+                self.end_work_message_printed = true;
+            }
 
             //println!("{}", self.step_id);
         }
@@ -253,7 +269,11 @@ where
         let send_result = self.updates_to_agent_sender.as_mut().unwrap().send(agent_update);
         match send_result {
             Err(e) => {
-                println!("Warning! Failed to send updates by Agent {} due to {}", self.agent_id, e);
+                let error_message = format!("Warning! Failed to send updates by Agent {} due to {e}", self.agent_id);
+                match self.logging_level {
+                    SolverLoggingLevels::Silent => (),
+                    _ => println!("{}", error_message),
+                }
                 return Err(1);
             },
             _ => ()
@@ -270,7 +290,11 @@ where
         let received_updates_result = self.updates_for_agent_receiver.as_mut().unwrap().recv();
         match received_updates_result {
             Err(e) => {
-                println!("Warning! Failed to receive updates by Agent {} due to {}", self.agent_id, e);
+                let error_message = format!("Warning! Failed to receive updates by Agent {} due to {e}", self.agent_id);
+                match self.logging_level {
+                    SolverLoggingLevels::Silent => (),
+                    _ => println!("{}", error_message),
+                }
                 return Err(1);
             },
             Ok(updates) => received_updates = updates
@@ -313,10 +337,13 @@ where
             match self.agent_status {
                 AgentStatuses::Alive => {
                     let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                    println!(
-                        "{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
+                    let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
                         Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time
                     );
+                    match self.logging_level {
+                        SolverLoggingLevels::Info => println!("{}", info_message),
+                        _ => (),
+                    }
                 },
                 _ => ()
             }
@@ -325,6 +352,13 @@ where
     pub fn convert_to_json(&self, individual: Individual<ScoreType>) -> Value {
 
         let inverse_transformed_variables = self.score_requester.variables_manager.inverse_transform_variables(&individual.variable_values);
+        let variables_names = self.score_requester.variables_manager.get_variables_names_vec();
+        let inverse_transformed_variables: Vec<(String, AnyValue)> = 
+        inverse_transformed_variables.iter()
+        .zip(variables_names.iter())
+        .map(|(x, name)| {
+            (name.clone(), x.clone())
+        }).collect();
         let individual_json = json!((inverse_transformed_variables, individual.score));
         return individual_json;
 

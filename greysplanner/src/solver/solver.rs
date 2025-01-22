@@ -18,6 +18,13 @@ use std::env;
 use serde::Serialize;
 use serde_json::Value;
 
+#[derive(Clone)]
+pub enum SolverLoggingLevels {
+    Info,
+    Warn,
+    Silent
+}
+
 pub struct Solver {}
 
 impl Solver {
@@ -25,8 +32,10 @@ impl Solver {
     pub fn solve<DomainType, CotwinBuilder, EntityVariants, UtilityObjectVariants, ScoreType> (
         domain: &DomainType,
         cotwin_builder: CotwinBuilder,
-        agent_builders: Vec<AgentBuildersVariants<ScoreType>>,
-        score_precision: Option<Vec<u64>>
+        agent_builder: AgentBuildersVariants<ScoreType>,
+        n_jobs: usize,
+        score_precision: Option<Vec<u64>>,
+        logging_level: SolverLoggingLevels,
     ) -> Value
     where
     DomainType: Clone + Send,
@@ -50,18 +59,19 @@ impl Solver {
             None => ()
         }
 
-        let n_jobs = agent_builders.len();
-
         let agent_ids:Vec<usize> = (0..n_jobs).collect();
         let domains: Vec<DomainType> = vec![domain.clone(); n_jobs];
         let cotwin_builders: Vec<CotwinBuilder> = vec![cotwin_builder.clone(); n_jobs];
+        let agent_builders: Vec<AgentBuildersVariants<ScoreType>> = vec![agent_builder.clone(); n_jobs];
         let score_precisions = vec![score_precision; n_jobs];
+        let logging_levels = vec![logging_level; n_jobs];
         let mut round_robin_status_vec: Vec<AgentStatuses> = Vec::new();
         let mut agents_updates_senders: Vec<Sender<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let mut agents_updates_receivers: Vec<Receiver<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
         let global_top_individual = Arc::new(Mutex::new(global_top_individual));
         let global_top_json = Arc::new(Mutex::new(Value::Null));
+
         for i in 0..n_jobs {
             round_robin_status_vec.insert(i, AgentStatuses::Alive);
             let (agent_i_updates_sender, agent_i_updates_receiver): (Sender<AgentToAgentUpdate<ScoreType>>, Receiver<AgentToAgentUpdate<ScoreType>>) = bounded(1);
@@ -79,7 +89,8 @@ impl Solver {
         .zip(agents_updates_senders.into_par_iter())
         .zip(agents_updates_receivers.into_par_iter())
         .zip(score_precisions.into_par_iter())
-        .for_each(|(((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp)| {
+        .zip(logging_levels.into_par_iter())
+        .for_each(|((((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp), log_lev)| {
             let cotwin_i = cotwin_builder_i.build_cotwin(domain_i);
             let mut agent_i;
             match agent_builder_i {
@@ -93,6 +104,7 @@ impl Solver {
             agent_i.updates_for_agent_receiver = Some(rc_i);
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
             agent_i.global_top_json = Arc::clone(&global_top_json);
+            agent_i.logging_level = log_lev;
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();
