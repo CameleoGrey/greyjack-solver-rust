@@ -15,7 +15,7 @@ use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{num_traits::{one, ToPrimitive}, Distribution, Uniform};
 
-use super::moves::MoveBaseTrait;
+use super::moves::BaseMoves;
 use super::moves::MoveTrait;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
@@ -32,8 +32,8 @@ pub struct GeneticAlgorithmBase {
     pub metaheuristic_name: MetaheuristicNames,
 
     pub group_mutation_rates_dict: HashMap<String, f64>,
-    pub available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>>,
     pub discrete_ids: Option<Vec<usize>>,
+    pub moves_count: usize,
 }
 
 impl GeneticAlgorithmBase {
@@ -48,8 +48,6 @@ impl GeneticAlgorithmBase {
     ) -> Self {
 
         let half_population_size = (0.5 * (population_size as f64)).ceil() as usize;
-        let metaheuristic_type = "population".to_string();
-        let metaheuristic_name = "GeneticAlgorithm".to_string();
         let current_mutation_rate_multiplier;
         match mutation_rate_multiplier {
             Some(x) => current_mutation_rate_multiplier = mutation_rate_multiplier.unwrap(),
@@ -62,13 +60,6 @@ impl GeneticAlgorithmBase {
             group_mutation_rates_dict.insert(group_name.clone(), current_group_mutation_rate);
         }
 
-        let mut available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>> = Vec::new();
-        available_mutation_methods.push(Box::new(Self::change_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
-        available_mutation_methods.push(Box::new(Self::swap_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
-        available_mutation_methods.push(Box::new(Self::swap_edges_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
-        available_mutation_methods.push(Box::new(Self::insertion_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
-        available_mutation_methods.push(Box::new(Self::scramble_move) as Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>);
-
         Self {
             population_size: population_size,
             half_population_size: half_population_size,
@@ -80,8 +71,8 @@ impl GeneticAlgorithmBase {
             metaheuristic_name: MetaheuristicNames::GeneticAlgorithm,
 
             group_mutation_rates_dict: group_mutation_rates_dict,
-            available_mutation_methods: available_mutation_methods,
             discrete_ids: discrete_ids.clone(),
+            moves_count: 5,
         }
     }
 
@@ -140,9 +131,17 @@ impl GeneticAlgorithmBase {
 
     fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager) -> Option<Vec<usize>>{
 
-        let rand_method_id = Uniform::new(0, self.available_mutation_methods.len()).sample(&mut StdRng::from_entropy());
-        let move_method = &self.available_mutation_methods[rand_method_id];
-        let changed_columns = move_method(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count);
+        let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
+        let changed_columns: Option<Vec<usize>>;
+        match rand_method_id {
+            0 => changed_columns = Self::change_move(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count),
+            1 => changed_columns = Self::swap_move(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count),
+            2 => changed_columns = Self::swap_edges_move(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count),
+            3 => changed_columns = Self::insertion_move(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count),
+            4 => changed_columns = Self::scramble_move(candidate, variables_manager, &self.group_mutation_rates_dict, variables_manager.variables_count),
+            _ => panic!("Invalid rand_method_id, no move with such id"),
+        }
+
         return changed_columns;
     }
 
@@ -212,8 +211,6 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-impl MoveBaseTrait for GeneticAlgorithmBase {}
-
 impl MoveTrait for GeneticAlgorithmBase {
 
     fn get_needful_info_for_move<'d>(
@@ -240,7 +237,7 @@ impl MoveTrait for GeneticAlgorithmBase {
 
             let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
 
-            Self::change_move_base(candidate, variables_manager, current_change_count, &group_ids)   
+            BaseMoves::change_move_base(candidate, variables_manager, current_change_count, &group_ids)   
     }
 
     fn swap_move(
@@ -252,7 +249,7 @@ impl MoveTrait for GeneticAlgorithmBase {
 
             let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
         
-            Self::swap_move_base(candidate, variables_manager, current_change_count, &group_ids)
+            BaseMoves::swap_move_base(candidate, variables_manager, current_change_count, &group_ids)
     }
     
     fn swap_edges_move(
@@ -264,7 +261,7 @@ impl MoveTrait for GeneticAlgorithmBase {
 
             let (group_ids, current_change_count) = Self::get_needful_info_for_move(variables_manager, group_mutation_rates_dict, variables_count);
             
-            Self::swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids)
+            BaseMoves::swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids)
     }
 
     fn insertion_move(
@@ -277,7 +274,7 @@ impl MoveTrait for GeneticAlgorithmBase {
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
             let current_change_count = 2;
 
-            Self::insertion_move_base(candidate, variables_manager, current_change_count, group_ids)
+            BaseMoves::insertion_move_base(candidate, variables_manager, current_change_count, group_ids)
         
     }
 
@@ -291,7 +288,7 @@ impl MoveTrait for GeneticAlgorithmBase {
             let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
 
-            Self::scramble_move_base(candidate, variables_manager, current_change_count, group_ids)
+            BaseMoves::scramble_move_base(candidate, variables_manager, current_change_count, group_ids)
     }
 }
 

@@ -1,7 +1,7 @@
 
 
-pub mod move_base_trait;
+pub mod base_moves;
 pub mod move_trait;
 
-pub use move_base_trait::MoveBaseTrait;
+pub use base_moves::BaseMoves;
 pub use move_trait::MoveTrait;
