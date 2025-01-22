@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::score_calculation::score_requesters::VariablesManager;
 use ndarray::Array1;
 
-pub trait MutationsTrait {
+pub trait MoveTrait {
 
     fn get_needful_info_for_move<'d>(
         variables_manager: &'d VariablesManager, 

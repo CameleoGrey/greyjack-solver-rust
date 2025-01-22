@@ -2,7 +2,7 @@
 
 pub mod metaheuristic_trait;
 pub mod genetic_algorithm_base;
-pub mod mutations;
+pub mod moves;
 pub mod metaheuristic_kinds_and_names;
 pub mod metaheuristics_bases_variants;
 

@@ -15,8 +15,8 @@ use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{num_traits::{one, ToPrimitive}, Distribution, Uniform};
 
-use super::mutations::MutationsBaseTrait;
-use super::mutations::MutationsTrait;
+use super::moves::MoveBaseTrait;
+use super::moves::MoveTrait;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
 
@@ -212,9 +212,9 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-impl MutationsBaseTrait for GeneticAlgorithmBase {}
+impl MoveBaseTrait for GeneticAlgorithmBase {}
 
-impl MutationsTrait for GeneticAlgorithmBase {
+impl MoveTrait for GeneticAlgorithmBase {
 
     fn get_needful_info_for_move<'d>(
             variables_manager: &'d VariablesManager, 

@@ -8,7 +8,7 @@ use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 use crate::utils::math_utils;
 
-pub trait MutationsBaseTrait {
+pub trait MoveBaseTrait {
     fn change_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
         
         if current_change_count < 1 {
