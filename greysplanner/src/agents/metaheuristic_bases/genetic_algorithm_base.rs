@@ -22,18 +22,18 @@ use crate::utils::math_utils;
 
 pub struct GeneticAlgorithmBase {
 
-    population_size: usize,
-    half_population_size: usize,
-    crossover_probability: f64,
-    mutation_rate_multiplier: f64,
-    p_best_rate: f64,
+    pub population_size: usize,
+    pub half_population_size: usize,
+    pub crossover_probability: f64,
+    pub mutation_rate_multiplier: f64,
+    pub p_best_rate: f64,
 
-    metaheuristic_kind: MetaheuristicKind,
-    metaheuristic_name: MetaheuristicNames,
+    pub metaheuristic_kind: MetaheuristicKind,
+    pub metaheuristic_name: MetaheuristicNames,
 
-    group_mutation_rates_dict: HashMap<String, f64>,
-    available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>>,
-    discrete_ids: Option<Vec<usize>>,
+    pub group_mutation_rates_dict: HashMap<String, f64>,
+    pub available_mutation_methods: Vec<Box<dyn (Fn(&mut Array1<f64>, &VariablesManager, &HashMap<String, f64>, usize) -> Option<Vec<usize>>) + Send>>,
+    pub discrete_ids: Option<Vec<usize>>,
 }
 
 impl GeneticAlgorithmBase {

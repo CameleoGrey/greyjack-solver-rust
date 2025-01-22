@@ -12,15 +12,15 @@ use greysplanner::agents::AgentBuildersVariants::*;
 use greysplanner::agents::termination_strategies::*;
 use greysplanner::agents::termination_strategies::TerminationStrategiesVariants::*;
 use greysplanner::utils::math_utils::*;
-use persistence::DomainUpdater;
-use persistence::{CotwinBuilder, DomainGenerator};
+use persistence::NQueensDomainUpdater;
+use persistence::{NQueensCotwinBuilder, NQueensDomainBuilder};
 use polars::datatypes::AnyValue;
 use serde_json;
 
 fn main() {
 
-    let mut nqueens_domain = DomainGenerator::generate_domain(256, 45);
-    let nqueens_cotwin_builder = CotwinBuilder::new();
+    let mut nqueens_domain = NQueensDomainBuilder::build_domain(256, 45);
+    let nqueens_cotwin_builder = NQueensCotwinBuilder::new();
     //println!("{}", nqueens_domain);
 
     //let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(0.0)));
@@ -33,7 +33,7 @@ fn main() {
         10, None, SolverLoggingLevels::Info
     );
 
-    DomainUpdater::update_domain(&mut nqueens_domain, solution);
+    NQueensDomainUpdater::update_domain(&mut nqueens_domain, solution);
     //println!("{}", nqueens_domain);
 
     println!("done");

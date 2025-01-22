@@ -9,12 +9,12 @@ use rand::*;
 use rand::rngs::{StdRng};
 use seq::SliceRandom;
 
-pub struct DomainGenerator {
+pub struct NQueensDomainBuilder {
 
 }
 
-impl DomainGenerator {
-    pub fn generate_domain(n_queens: u64, random_seed: u64) -> ChessBoard {
+impl NQueensDomainBuilder {
+    pub fn build_domain(n_queens: u64, random_seed: u64) -> ChessBoard {
 
         let mut random_row_ids: Vec<u64> = Vec::new();
         let mut column_ids: Vec<u64> = Vec::new();
@@ -42,4 +42,4 @@ impl DomainGenerator {
     }
 }
 
-unsafe impl Send for DomainGenerator {}
+unsafe impl Send for NQueensDomainBuilder {}

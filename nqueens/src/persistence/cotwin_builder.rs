@@ -34,11 +34,11 @@ impl<'a> CotwinEntityTrait for EntityVariants<'a> {
 pub enum UtilityObjectVariants {}
 
 #[derive(Clone)]
-pub struct CotwinBuilder {
+pub struct NQueensCotwinBuilder {
 
 }
 
-impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
+impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for NQueensCotwinBuilder
  {
     fn new() -> Self {
         Self{}
@@ -80,7 +80,7 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
     }
 }
 
-impl CotwinBuilder {
+impl NQueensCotwinBuilder {
 }
 
-unsafe impl Send for CotwinBuilder {}
+unsafe impl Send for NQueensCotwinBuilder {}

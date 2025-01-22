@@ -7,6 +7,7 @@ use crate::score_calculation::score_requesters::OOPScoreRequester;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
 use crate::agents::metaheuristic_bases::MetaheuristicBaseTrait;
+use crate::agents::metaheuristic_bases::MetaheuristicsBasesVariants;
 use crate::agents::metaheuristic_bases::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::cotwin::CotwinEntityTrait;
 use crate::solver::SolverLoggingLevels;
@@ -42,7 +43,7 @@ where
     
     pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
     pub score_precision: Option<Vec<u64>>,
-    pub metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>,
+    pub metaheuristic_base: MetaheuristicsBasesVariants,
     
     pub steps_to_send_updates: usize,
     pub agent_status: AgentStatuses,
@@ -71,7 +72,7 @@ where
         termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
         score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
-        metaheuristic_base: Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>
+        metaheuristic_base: MetaheuristicsBasesVariants,
     ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType> {
 
         // agent_id, round_robin_status_dict and channels will be set by Solver, not by agent 
@@ -237,8 +238,15 @@ where
 
     fn step(&mut self) {
 
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let samples: Vec<Array1<f64>> = self.metaheuristic_base.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+        //Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>
+
+        let metaheuristic_base;
+        match &mut self.metaheuristic_base {
+            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
+            MetaheuristicsBasesVariants::GAB(gab) => metaheuristic_base = gab,
+        }
+
+        let samples: Vec<Array1<f64>> = metaheuristic_base.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
         //println!("sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
         //let start_time = chrono::Utc::now().timestamp_millis();
@@ -254,7 +262,7 @@ where
         for i in 0..samples.len() {
             candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
         }
-        self.population = self.metaheuristic_base.build_updated_population(&self.population, &candidates);
+        self.population = metaheuristic_base.build_updated_population(&self.population, &candidates);
         //println!("update population time: {}", chrono::Utc::now().timestamp_millis() - start_time );
     }
 
@@ -306,7 +314,12 @@ where
             }
         });
 
-        let current_agent_kind = self.metaheuristic_base.get_metaheuristic_kind();
+        let current_agent_kind: MetaheuristicKind;
+        match &self.metaheuristic_base {
+            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
+            MetaheuristicsBasesVariants::GAB(gab) => current_agent_kind = gab.metaheuristic_kind.clone(),
+        }
+
         let comparison_ids:Vec<usize>;
         match current_agent_kind {
             MetaheuristicKind::Population => {

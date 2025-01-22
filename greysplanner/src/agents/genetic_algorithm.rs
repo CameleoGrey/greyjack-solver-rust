@@ -1,6 +1,7 @@
 
 use super::base::agent_base::Agent;
 use super::metaheuristic_bases::GeneticAlgorithmBase;
+use super::metaheuristic_bases::MetaheuristicsBasesVariants;
 use crate::agents::termination_strategies::TerminationStrategiesVariants;
 use crate::score_calculation::score_requesters::OOPScoreRequester;
 use crate::score_calculation::scores::ScoreTrait;
@@ -63,11 +64,12 @@ where
         let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, 
                                                                                  self.mutation_rate_multiplier, self.p_best_rate, 
                                                                                  semantic_groups_dict, discrete_ids);
+        let metaheuristic_base = MetaheuristicsBasesVariants::GAB(metaheuristic_base);
         
         let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(self.migration_rate, 
                                                                                         self.migration_frequency, self.termination_strategy.clone(), 
                                                                                         self.population_size, score_requester, 
-                                                                                        Box::new(metaheuristic_base));
+                                                                                        metaheuristic_base);
         
         return agent;
 
