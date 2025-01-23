@@ -5,6 +5,7 @@ use crate::utils::math_utils::round;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::ops::{Add, AddAssign};
+use std::fmt::{Display, Formatter};
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -106,6 +107,14 @@ impl AddAssign for HardSoftScore {
         self.hard_score += rhs.hard_score;
         self.soft_score += rhs.soft_score;
     }
+}
+
+impl Display for HardSoftScore {
+
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} | {}", self.hard_score, self.soft_score)
+    }
+    
 }
 
 unsafe impl Send for HardSoftScore {}

@@ -17,7 +17,7 @@ use super::AgentToAgentUpdate;
 use super::AgentStatuses;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::AddAssign;
 use crossbeam_channel::*;
 use ndarray::Array1;
@@ -30,7 +30,7 @@ use serde_json::Value;
 pub struct Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
     pub migration_rate: f64, 
     pub migration_frequency: usize, 
@@ -68,7 +68,7 @@ impl<EntityVariants, UtilityObjectVariants, ScoreType>
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
     pub fn new(
         migration_rate: f64, 
@@ -366,7 +366,7 @@ where
                     match self.logging_level {
                         SolverLoggingLevels::Info => {
                             let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                            let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
+                            let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {}, Solving time: {}", 
                                 Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time);
                             println!("{}", info_message);
                         },
@@ -398,13 +398,13 @@ unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {}
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {}
 
 impl<EntityVariants, UtilityObjectVariants, ScoreType> ObservableTrait 
 for Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
         // Solver gets observers as arguments of solve. This is stub implementation just for pattern Observer be "clean".
         fn register_observer(&mut self, observer: Box<dyn ObserverTrait>){}

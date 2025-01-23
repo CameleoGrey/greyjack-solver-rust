@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::ops::AddAssign;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::sync::{Arc, Mutex};
 
 use crate::agents::base::{Agent, AgentStatuses, AgentToAgentUpdate, Individual};
@@ -44,7 +44,7 @@ impl Solver {
     DomainType: Clone + Send,
     CotwinBuilder: CotwinBuilderTrait<DomainType, EntityVariants, UtilityObjectVariants, ScoreType> + Clone + Send,
     EntityVariants: CotwinEntityTrait + Send,
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send + Serialize {
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
 
         /* 
             Returns serde_json::Value to use it as json string (solution.to_string()) to send via http or

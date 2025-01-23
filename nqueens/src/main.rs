@@ -27,7 +27,8 @@ fn main() {
     let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
     //let termination_strategy = StL(StepsLimit::new(20));
     //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
-    let agent_builder = GA(GeneticAlgorithm::new(128, 0.0, Some(1.0), 0.05, 0.00001, 10, termination_strategy));
+    
+    let agent_builder = GA(GeneticAlgorithm::new(128, 0.0, Some(1.0), 0.05, 0.00001, 1, termination_strategy));
 
     // example of optional observers
     //let mut observers: Vec<Box<dyn ObserverTrait + Send>> = Vec::new();

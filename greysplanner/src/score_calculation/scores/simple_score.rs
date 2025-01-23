@@ -4,17 +4,18 @@ use crate::score_calculation::scores::ScoreTrait;
 use crate::utils::math_utils::round;
 use std::cmp::Ordering;
 use std::ops::{Add, AddAssign};
+use std::fmt::{Display, Formatter};
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct SimpleScore {
-    score_value: f64
+    simple_value: f64
 }
 
 impl SimpleScore {
-    pub fn new(score_value: f64) -> Self{
+    pub fn new(simple_value: f64) -> Self{
         SimpleScore{
-            score_value: score_value
+            simple_value
         }
     }
 }
@@ -22,32 +23,32 @@ impl SimpleScore {
 impl ScoreTrait for SimpleScore {
 
     fn get_sum_abs(&self) -> f64 {
-        self.score_value.abs()
+        self.simple_value.abs()
     }
 
     fn get_priority_score(&self) -> f64 {
-        self.score_value
+        self.simple_value
     }
 
     fn get_fitness_value(&self) -> f64 {
-        1.0 - (1.0 / (self.score_value + 1.0))
+        1.0 - (1.0 / (self.simple_value + 1.0))
     }
 
     fn get_null_score() -> Self {
         SimpleScore {
-            score_value: 0.0
+            simple_value: 0.0
         }
     }
 
     fn get_stub_score() -> Self {
         SimpleScore {
-            score_value: f64::MAX - 1.0
+            simple_value: f64::MAX - 1.0
         }
     }
 
     fn mul(&self, scalar: f64) -> Self {
         SimpleScore {
-            score_value: scalar * self.score_value,
+            simple_value: scalar * self.simple_value,
         }
     }
 
@@ -56,7 +57,7 @@ impl ScoreTrait for SimpleScore {
     }
 
     fn round(&mut self, precision: &Vec<u64>) {
-        self.score_value = round(self.score_value, precision[0]);
+        self.simple_value = round(self.simple_value, precision[0]);
     }
 }
 
@@ -65,7 +66,7 @@ impl Eq for SimpleScore {}
 impl Ord for SimpleScore {
 
     fn cmp(&self, other: &Self) -> Ordering {
-        self.score_value.total_cmp(&other.score_value)
+        self.simple_value.total_cmp(&other.simple_value)
     }
     
 }
@@ -75,15 +76,23 @@ impl Add for SimpleScore {
 
     fn add(self, rhs: Self) -> Self::Output {
         SimpleScore {
-            score_value: self.score_value + rhs.score_value,
+            simple_value: self.simple_value + rhs.simple_value,
         }
     }
 }
 
 impl AddAssign for SimpleScore {
     fn add_assign(&mut self, rhs: Self) {
-        self.score_value += rhs.score_value;
+        self.simple_value += rhs.simple_value;
     }
+}
+
+impl Display for SimpleScore {
+
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.simple_value)
+    }
+    
 }
 
 unsafe impl Send for SimpleScore {}
