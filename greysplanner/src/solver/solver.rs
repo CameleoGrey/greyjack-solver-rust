@@ -10,13 +10,15 @@ use crate::agents::base::AgentStatuses::*;
 use crate::agents::AgentBuildersVariants;
 use crate::cotwin::{CotwinBuilderTrait, CotwinEntityTrait};
 use crate::score_calculation::scores::ScoreTrait;
-use super::{ObservableTrait, ObserverTrait};
 use crossbeam_channel::*;
 use ndarray::Array1;
 use rayon::prelude::*;
 use std::env;
 use serde::Serialize;
 use serde_json::Value;
+
+use super::ObserverTrait;
+use super::ObservableTrait;
 
 #[derive(Clone)]
 pub enum SolverLoggingLevels {
@@ -36,6 +38,7 @@ impl Solver {
         n_jobs: usize,
         score_precision: Option<Vec<u64>>,
         logging_level: SolverLoggingLevels,
+        observers: Option<Vec<Box<dyn ObserverTrait + Send>>>
     ) -> Value
     where
     DomainType: Clone + Send,
@@ -71,6 +74,19 @@ impl Solver {
         let global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
         let global_top_individual = Arc::new(Mutex::new(global_top_individual));
         let global_top_json = Arc::new(Mutex::new(Value::Null));
+        
+        let observers_counts: Vec<usize>;
+        let observers_arc:Arc<Mutex<Option<Vec<Box<dyn ObserverTrait + Send>>>>>;
+        match observers {
+            None => {
+                observers_counts = vec![0; n_jobs];
+                observers_arc = Arc::new(Mutex::new(None));
+            }
+            Some(observers) => {
+                observers_counts = vec![observers.len(); n_jobs];
+                observers_arc = Arc::new(Mutex::new(Some(observers)));
+            }
+        }
 
         for i in 0..n_jobs {
             round_robin_status_vec.insert(i, AgentStatuses::Alive);
@@ -90,7 +106,8 @@ impl Solver {
         .zip(agents_updates_receivers.into_par_iter())
         .zip(score_precisions.into_par_iter())
         .zip(logging_levels.into_par_iter())
-        .for_each(|((((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp), log_lev)| {
+        .zip(observers_counts.into_par_iter())
+        .for_each(|(((((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp), log_lev), oc)| {
             let cotwin_i = cotwin_builder_i.build_cotwin(domain_i);
             let mut agent_i;
             match agent_builder_i {
@@ -105,6 +122,8 @@ impl Solver {
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
             agent_i.global_top_json = Arc::clone(&global_top_json);
             agent_i.logging_level = log_lev;
+            agent_i.observers = observers_arc.clone();
+            agent_i.observers_count = oc;
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();
@@ -115,5 +134,4 @@ impl Solver {
         return solution_json;
 
     }
-
 }

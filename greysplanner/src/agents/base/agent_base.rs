@@ -11,6 +11,8 @@ use crate::agents::metaheuristic_bases::MetaheuristicsBasesVariants;
 use crate::agents::metaheuristic_bases::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::cotwin::CotwinEntityTrait;
 use crate::solver::SolverLoggingLevels;
+use crate::solver::observable_trait::ObservableTrait;
+use crate::solver::observer_trait::ObserverTrait;
 use super::AgentToAgentUpdate;
 use super::AgentStatuses;
 use std::collections::HashMap;
@@ -58,6 +60,8 @@ where
     pub logging_level: SolverLoggingLevels,
     pub end_work_message_printed: bool,
 
+    pub observers: Arc<Mutex<Option<Vec<Box<dyn ObserverTrait + Send>>>>>,
+    pub observers_count: usize,
 }
 
 impl<EntityVariants, UtilityObjectVariants, ScoreType> 
@@ -106,6 +110,9 @@ where
             step_id: 0,
             logging_level: SolverLoggingLevels::Info,
             end_work_message_printed: false,
+
+            observers: Arc::new(Mutex::new(None)), // setups by Solver
+            observers_count: 0 // setups by Solver
         }
     }
 
@@ -221,9 +228,8 @@ where
                     }
                 }
                 self.end_work_message_printed = true;
+                //println!("{}", self.step_id);
             }
-
-            //println!("{}", self.step_id);
         }
     }
 
@@ -277,10 +283,12 @@ where
         let send_result = self.updates_to_agent_sender.as_mut().unwrap().send(agent_update);
         match send_result {
             Err(e) => {
-                let error_message = format!("Warning! Failed to send updates by Agent {} due to {e}", self.agent_id);
                 match self.logging_level {
                     SolverLoggingLevels::Silent => (),
-                    _ => println!("{}", error_message),
+                    _ => {
+                        let error_message = format!("Warning! Failed to send updates by Agent {} due to {e}", self.agent_id);
+                        println!("{}", error_message);
+                    }
                 }
                 return Err(1);
             },
@@ -298,10 +306,12 @@ where
         let received_updates_result = self.updates_for_agent_receiver.as_mut().unwrap().recv();
         match received_updates_result {
             Err(e) => {
-                let error_message = format!("Warning! Failed to receive updates by Agent {} due to {e}", self.agent_id);
                 match self.logging_level {
                     SolverLoggingLevels::Silent => (),
-                    _ => println!("{}", error_message),
+                    _ => {
+                        let error_message = format!("Warning! Failed to receive updates by Agent {} due to {e}", self.agent_id);
+                        println!("{}", error_message)
+                    },
                 }
                 return Err(1);
             },
@@ -345,16 +355,21 @@ where
             if self.agent_top_individual.score < global_top_individual.score {
                 *global_top_individual = self.agent_top_individual.clone();
                 *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
+
+                if self.observers_count > 0 {
+                    self.notify_observers(global_top_json.clone());
+                }
             }
             
             match self.agent_status {
                 AgentStatuses::Alive => {
-                    let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                    let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
-                        Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time
-                    );
                     match self.logging_level {
-                        SolverLoggingLevels::Info => println!("{}", info_message),
+                        SolverLoggingLevels::Info => {
+                            let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
+                            let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {:?}, Solving time: {}", 
+                                Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time);
+                            println!("{}", info_message);
+                        },
                         _ => (),
                     }
                 },
@@ -384,3 +399,26 @@ Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     EntityVariants: CotwinEntityTrait,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {}
+
+impl<EntityVariants, UtilityObjectVariants, ScoreType> ObservableTrait 
+for Agent<EntityVariants, UtilityObjectVariants, ScoreType>
+where
+    EntityVariants: CotwinEntityTrait,
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send + Serialize {
+
+        // Solver gets observers as arguments of solve. This is stub implementation just for pattern Observer be "clean".
+        fn register_observer(&mut self, observer: Box<dyn ObserverTrait>){}
+
+        fn notify_observers(&self, solution: Value) {
+            
+            match &mut (*self.observers.lock().unwrap()) {
+                None => (),
+                Some(observers) => {
+                    for observer in observers {
+                        observer.update(solution.clone());
+                    }
+                }
+            }
+        }
+
+}

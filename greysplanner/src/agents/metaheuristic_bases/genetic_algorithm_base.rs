@@ -11,9 +11,9 @@ use ndarray_rand::RandomExt;
 use std::ops::AddAssign;
 use std::fmt::Debug;
 
-use rand::{seq::SliceRandom, SeedableRng};
+use rand::SeedableRng;
 use rand::rngs::StdRng;
-use rand_distr::{num_traits::{one, ToPrimitive}, Distribution, Uniform};
+use rand_distr::{Distribution, Uniform};
 
 use super::moves::BaseMoves;
 use super::moves::MoveTrait;
@@ -80,7 +80,7 @@ impl GeneticAlgorithmBase {
     where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
         let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
-        let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
+        let last_top_id = (p_best_proba * (self.population_size as f64)).ceil() as usize;
         let chosen_id:usize = Uniform::new(0, last_top_id).sample(&mut StdRng::from_entropy());
         let p_best = population[chosen_id].clone();
 
@@ -91,7 +91,7 @@ impl GeneticAlgorithmBase {
     where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
         let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
-        let last_top_id = (p_best_proba * self.population_size.to_f64().unwrap()).ceil().to_usize().unwrap();
+        let last_top_id = (p_best_proba * (self.population_size as f64)).ceil() as usize;
         let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut StdRng::from_entropy());
         let p_worst = population[chosen_id].clone();
 
