@@ -1,5 +1,7 @@
 
 
+
+
 use std::collections::HashMap;
 use crate::score_calculation::score_requesters::VariablesManager;
 
@@ -19,14 +21,19 @@ use super::moves::BaseMoves;
 use super::moves::MoveTrait;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
+use std::collections::VecDeque;
 
-pub struct GeneticAlgorithmBase {
+/*
+https://www.cs.stir.ac.uk/~kjt/techreps/pdf/TR192.pdf
+*/
+
+pub struct LateAcceptanceBase<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send {
 
     pub population_size: usize,
-    pub half_population_size: usize,
-    pub crossover_probability: f64,
-    pub mutation_rate_multiplier: f64,
-    pub p_best_rate: f64,
+    pub late_acceptance_size: usize,
+    //pub late_scores: Vec<ScoreType>,
+    pub late_scores: VecDeque<ScoreType>,
 
     pub metaheuristic_kind: MetaheuristicKind,
     pub metaheuristic_name: MetaheuristicNames,
@@ -36,18 +43,17 @@ pub struct GeneticAlgorithmBase {
     pub moves_count: usize,
 }
 
-impl GeneticAlgorithmBase {
+impl<ScoreType> LateAcceptanceBase<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send  {
 
     pub fn new(
-        population_size: usize, 
-        crossover_probability: f64, 
+        population_size: usize,
+        late_acceptance_size: usize,
         mutation_rate_multiplier: Option<f64>, 
-        p_best_rate: f64,
         semantic_groups_dict: HashMap<String, Vec<usize>>,
         discrete_ids: Option<Vec<usize>>,
     ) -> Self {
 
-        let half_population_size = (0.5 * (population_size as f64)).ceil() as usize;
         let current_mutation_rate_multiplier;
         match mutation_rate_multiplier {
             Some(x) => current_mutation_rate_multiplier = mutation_rate_multiplier.unwrap(),
@@ -62,71 +68,17 @@ impl GeneticAlgorithmBase {
 
         Self {
             population_size: population_size,
-            half_population_size: half_population_size,
-            crossover_probability: crossover_probability,
-            mutation_rate_multiplier: current_mutation_rate_multiplier,
-            p_best_rate: p_best_rate,
+            late_acceptance_size: late_acceptance_size,
+            //late_scores: Vec::new(),
+            late_scores: VecDeque::new(),
 
-            metaheuristic_kind: MetaheuristicKind::Population,
-            metaheuristic_name: MetaheuristicNames::GeneticAlgorithm,
+            metaheuristic_kind: MetaheuristicKind::LocalSearch,
+            metaheuristic_name: MetaheuristicNames::LateAcceptance,
 
             group_mutation_rates_dict: group_mutation_rates_dict,
             discrete_ids: discrete_ids.clone(),
             moves_count: 5,
         }
-    }
-
-    fn select_p_best<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
-    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
-
-        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
-        let last_top_id = (p_best_proba * (self.population_size as f64)).ceil() as usize;
-        let chosen_id:usize = Uniform::new(0, last_top_id).sample(&mut StdRng::from_entropy());
-        let p_best = population[chosen_id].clone();
-
-        return p_best;
-    }
-
-    fn select_p_worst<ScoreType>(&mut self, population: &Vec<Individual<ScoreType>>) -> Individual<ScoreType>
-    where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
-
-        let p_best_proba = Uniform::new(0.000001, self.p_best_rate).sample(&mut StdRng::from_entropy());
-        let last_top_id = (p_best_proba * (self.population_size as f64)).ceil() as usize;
-        let chosen_id: usize = Uniform::new(self.population_size - last_top_id, self.population_size).sample(&mut StdRng::from_entropy());
-        let p_worst = population[chosen_id].clone();
-
-        return p_worst;
-    }
-
-    fn cross(&mut self, candidate_1: Array1<f64>, candidate_2: Array1<f64>) -> (Array1<f64>, Array1<f64>) {
-
-        let variables_count = candidate_1.len();
-        let mut weights = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
-
-        match &self.discrete_ids {
-            None => (),
-            Some(discrete_ids) => discrete_ids.into_iter().for_each(|i| weights[*i] = math_utils::rint(weights[*i]))
-        }
-
-        let new_candidate_1: Array1<f64> = 
-            weights.iter()
-            .zip(candidate_1.iter())
-            .zip(candidate_2.iter())
-            .map(|((w, c_1), c_2)| {
-                c_1 * w + c_2 * (1.0 - w)
-            })
-            .collect();
-
-        let new_candidate_2: Array1<f64> = 
-            weights.iter()
-            .zip(candidate_1.iter())
-            .zip(candidate_2.iter())
-            .map(|((w, c_1), c_2)| {
-                c_2 * w + c_1 * (1.0 - w)
-            })
-            .collect();
-
-        return (new_candidate_1, new_candidate_2);
     }
 
     fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager) -> Option<Vec<usize>>{
@@ -147,7 +99,7 @@ impl GeneticAlgorithmBase {
 
 }
 
-impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for GeneticAlgorithmBase
+impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for LateAcceptanceBase<ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn sample_candidates(
@@ -157,32 +109,17 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             variables_manager: &VariablesManager
         ) -> Vec<Array1<f64>> {
         
-        population.sort();
-
-        let mut candidates: Vec<Array1<f64>> = Vec::new();
-        for i in 0..self.half_population_size {
-            let mut candidate_1 = self.select_p_best(population).variable_values;
-            let mut candidate_2 = self.select_p_best(population).variable_values;
-
-            if Uniform::new_inclusive(0.0, 1.0).sample(&mut StdRng::from_entropy()) <= self.crossover_probability {
-                (candidate_1, candidate_2) = self.cross(candidate_1, candidate_2);
-            }
-            
-            let candidate_1_changed_columns = self.mutate(&mut candidate_1, variables_manager);
-            let candidate_2_changed_columns = self.mutate(&mut candidate_2, variables_manager);
-
-            // for crossover with np.rint() one doesn't need for fixing the whole candidate vector
-            // float values are crossed without rint, but due to the convex sum they will be still into the bounds
-            // all sampled values are always in the bounds
-            // problems can occur only by swap mutations, so fix all changed by a move columns
-            variables_manager.fix_variables(&mut candidate_1, candidate_1_changed_columns);
-            variables_manager.fix_variables(&mut candidate_2, candidate_2_changed_columns);
-
-            candidates.push(candidate_1);
-            candidates.push(candidate_2);
+        if population.len() > 1 {
+            population.sort();
         }
-        
-        return candidates;
+
+        let mut candidate = population[0].variable_values.clone();
+        let changed_columns = self.mutate(&mut candidate, variables_manager);
+        variables_manager.fix_variables(&mut candidate, changed_columns);
+        let candidate = vec![candidate; 1];
+
+        return candidate;
+
     }
 
     fn build_updated_population(
@@ -191,15 +128,49 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         candidates: &Vec<Individual<ScoreType>>
         ) -> (Vec<Individual<ScoreType>>, bool) {
         
-        let mut winners: Vec<Individual<ScoreType>> = Vec::new();
-        for i in 0..self.population_size {
-            let weak_native = self.select_p_worst(current_population);
-            let candidate = &candidates[i];
-            let winner = if &candidate.score <= &weak_native.score {candidate.clone()} else {weak_native.clone()};
-            winners.push(winner);
+        let candidate_to_compare_score;
+        if self.late_scores.len() == 0 {
+            candidate_to_compare_score = current_population[current_population.len() - 1].score.clone();
+        } else {
+            // vec variant with sorting
+            //self.late_scores.sort();
+            //self.late_scores.reverse();
+            //candidate_to_compare_score = self.late_scores[0].clone();
+
+            //VecDeque variant
+            candidate_to_compare_score = self.late_scores.back().unwrap().clone();
         }
 
-        return (winners, true);
+        let mut new_population;
+        let mut found_acceptable = false;
+        let candidate_score = candidates[0].score.clone();
+        if (candidate_score <= candidate_to_compare_score) || (candidate_score <= current_population[0].score) {
+            found_acceptable = true;
+            let best_candidate = candidates[0].clone();
+            new_population = vec![best_candidate; 1];
+            if current_population.len() > 1 {
+                current_population[1..current_population.len()].iter().for_each(|individual| new_population.push(individual.clone()));
+            }
+
+            // vec variant with sorting
+            //self.late_scores.push(candidate_score);
+
+            //VecDeque variant
+            self.late_scores.push_front(candidate_score);
+            //println!("{:?}, {:?}", self.late_scores, candidate_to_compare_score);
+            if self.late_scores.len() > self.late_acceptance_size {
+
+                // vec variant with sorting
+                //self.late_scores = self.late_scores[1..].to_vec();
+
+                // VecDeque variant
+                self.late_scores.pop_back();
+            }
+        } else {
+            new_population = current_population.clone();
+        }
+
+        return (new_population, found_acceptable);
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {
@@ -211,7 +182,8 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-impl MoveTrait for GeneticAlgorithmBase {
+impl<ScoreType> MoveTrait for LateAcceptanceBase<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn get_needful_info_for_move<'d>(
             variables_manager: &'d VariablesManager, 
@@ -292,4 +264,5 @@ impl MoveTrait for GeneticAlgorithmBase {
     }
 }
 
-unsafe impl Send for GeneticAlgorithmBase {}
+unsafe impl<ScoreType> Send for LateAcceptanceBase<ScoreType>
+where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {}

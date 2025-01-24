@@ -1,7 +1,7 @@
 
 
-use crate::{agents::base::Individual, variables::PlanningVariablesTypes};
-use crate::variables::PlanningVariablesTypes::*;
+use crate::{agents::base::Individual, variables::PlanningVariablesVariants};
+use crate::variables::PlanningVariablesVariants::*;
 use polars::prelude::*;
 use ndarray::Array1;
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 
 pub struct VariablesManager {
-    variables_vec: Vec<PlanningVariablesTypes>,
+    variables_vec: Vec<PlanningVariablesVariants>,
     pub variables_count: usize,
     pub variable_ids: Vec<usize>,
     pub lower_bounds: Vec<f64>,
@@ -25,7 +25,7 @@ pub struct VariablesManager {
 
 impl VariablesManager {
     
-    pub fn new(variables_vec: Vec<PlanningVariablesTypes>) -> Self {
+    pub fn new(variables_vec: Vec<PlanningVariablesVariants>) -> Self {
 
         let mut variable_ids: Vec<usize> = Vec::new();
         let mut lower_bounds: Vec<f64> = Vec::new();
@@ -37,11 +37,11 @@ impl VariablesManager {
             variable_ids.push(i);
             let current_variable = variables_vec.get(i).unwrap();
             match current_variable {
-                PlanningVariablesTypes::GPFloatVar(x) => {
+                PlanningVariablesVariants::GPFloatVar(x) => {
                     lower_bounds.push(x.lower_bound);
                     upper_bounds.push(x.upper_bound);
                 }
-                PlanningVariablesTypes::GPIntegerVar(x) => {
+                PlanningVariablesVariants::GPIntegerVar(x) => {
                     lower_bounds.push(x.lower_bound);
                     upper_bounds.push(x.upper_bound);
                     discrete_ids.push(i);
@@ -74,7 +74,7 @@ impl VariablesManager {
 
     }
 
-    fn build_semantic_groups_dict(variables_vec: &Vec<PlanningVariablesTypes>) -> HashMap<String, Vec<usize>> {
+    fn build_semantic_groups_dict(variables_vec: &Vec<PlanningVariablesVariants>) -> HashMap<String, Vec<usize>> {
 
         let mut semantic_groups_dict: HashMap<String, Vec<usize>> = HashMap::new();
         for i in 0..variables_vec.len() {
@@ -125,8 +125,8 @@ impl VariablesManager {
             let variable = &mut self.variables_vec[i];
             let generated_value: f64;
             match variable {
-                PlanningVariablesTypes::GPFloatVar(x) => generated_value = x.get_initial_value(),
-                PlanningVariablesTypes::GPIntegerVar(x) => generated_value = x.get_initial_value()
+                PlanningVariablesVariants::GPFloatVar(x) => generated_value = x.get_initial_value(),
+                PlanningVariablesVariants::GPIntegerVar(x) => generated_value = x.get_initial_value()
             }
             values_array[i] = generated_value;
         }
@@ -140,10 +140,10 @@ impl VariablesManager {
         let values_map: Vec<AnyValue<'a>> =
         self.variables_vec.iter().zip(values_array.iter()).map(|(variable, x)| {
             match variable {
-                PlanningVariablesTypes::GPFloatVar(float_var) => {
+                PlanningVariablesVariants::GPFloatVar(float_var) => {
                     AnyValue::Float64(float_var.inverse_transform(*x))
                 }
-                PlanningVariablesTypes::GPIntegerVar(int_var) => {
+                PlanningVariablesVariants::GPIntegerVar(int_var) => {
                     AnyValue::Int64(int_var.inverse_transform(*x))
                 }
             }
@@ -155,8 +155,8 @@ impl VariablesManager {
     pub fn get_variables_names_vec(&self) -> Vec<String> {
         self.variables_vec.iter().map(|variable| {
             match variable {
-                PlanningVariablesTypes::GPFloatVar(float_var) => float_var.name.clone(),
-                PlanningVariablesTypes::GPIntegerVar(int_var) => int_var.name.clone()
+                PlanningVariablesVariants::GPFloatVar(float_var) => float_var.name.clone(),
+                PlanningVariablesVariants::GPIntegerVar(int_var) => int_var.name.clone()
             }
         }).collect()
     }
@@ -169,12 +169,12 @@ impl VariablesManager {
             None => range_ids = Vec::from_iter( (0..self.variables_count).into_iter() )
         }
 
-        for i in range_ids {
-            match &self.variables_vec[i] {
-                GPFloatVar(x) => values_array[i] = x.fix(values_array[i]),
-                GPIntegerVar(x) => values_array[i] = x.fix(values_array[i]),
+        let stub_collection: () = range_ids.iter().map(|i| {
+            match &self.variables_vec[*i] {
+                GPFloatVar(x) => values_array[*i] = x.fix(values_array[*i]),
+                GPIntegerVar(x) => values_array[*i] = x.fix(values_array[*i]),
             }
-        }
+        }).collect();
     }
 
 }

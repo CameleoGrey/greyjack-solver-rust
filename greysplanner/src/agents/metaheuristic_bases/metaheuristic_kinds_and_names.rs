@@ -10,5 +10,5 @@ pub enum MetaheuristicKind {
 pub enum MetaheuristicNames {
     GeneticAlgorithm,
     TabuSearch,
-    LocalSearch
+    LateAcceptance,
 }

@@ -4,7 +4,7 @@ use crate::cotwin::Cotwin;
 use crate::cotwin::CotwinEntityTrait;
 use crate::cotwin::CotwinValueTypes;
 use crate::cotwin::CotwinValueTypes::*;
-use crate::variables::PlanningVariablesTypes;
+use crate::variables::PlanningVariablesVariants;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::score_calculation::score_requesters::VariablesManager;
 
@@ -82,9 +82,9 @@ where
         }
 
         fn build_variables_info(cotwin: &Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>) 
-        -> (Vec<PlanningVariablesTypes>, HashMap<String, usize>, HashMap<usize, String>) {
+        -> (Vec<PlanningVariablesVariants>, HashMap<String, usize>, HashMap<usize, String>) {
             
-            let mut variables_vec: Vec<PlanningVariablesTypes> = Vec::new();
+            let mut variables_vec: Vec<PlanningVariablesVariants> = Vec::new();
             let mut var_name_to_vec_id_map: HashMap<String, usize> = HashMap::new();
             let mut vec_id_to_var_name_map: HashMap<usize, String> = HashMap::new();
 
@@ -111,11 +111,11 @@ where
                         match attribute_value {
                             GPFloatVar(float_value) => {
                                 float_value.set_name(full_variable_name.clone());
-                                variable = PlanningVariablesTypes::GPFloatVar(float_value.clone());
+                                variable = PlanningVariablesVariants::GPFloatVar(float_value.clone());
                             },
                             GPIntegerVar(integer_value) => {
                                 integer_value.set_name(full_variable_name.clone());
-                                variable = PlanningVariablesTypes::GPIntegerVar(integer_value.clone())
+                                variable = PlanningVariablesVariants::GPIntegerVar(integer_value.clone())
                             },
                             PolarsAnyValue(_) => continue,
                         }

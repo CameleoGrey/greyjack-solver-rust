@@ -111,7 +111,8 @@ impl Solver {
             let cotwin_i = cotwin_builder_i.build_cotwin(domain_i);
             let mut agent_i;
             match agent_builder_i {
-                AgentBuildersVariants::GA(ga_builder) => agent_i = ga_builder.build_agent(cotwin_i)
+                AgentBuildersVariants::GA(ga_builder) => agent_i = ga_builder.build_agent(cotwin_i),
+                AgentBuildersVariants::LA(la_builder) => agent_i = la_builder.build_agent(cotwin_i)
             }
             agent_i.agent_id = id_i;
             agent_i.score_precision = sp;

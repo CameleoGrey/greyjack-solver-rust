@@ -45,7 +45,7 @@ where
     
     pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
     pub score_precision: Option<Vec<u64>>,
-    pub metaheuristic_base: MetaheuristicsBasesVariants,
+    pub metaheuristic_base: MetaheuristicsBasesVariants<ScoreType>,
     
     pub steps_to_send_updates: usize,
     pub agent_status: AgentStatuses,
@@ -76,7 +76,7 @@ where
         termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
         score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
-        metaheuristic_base: MetaheuristicsBasesVariants,
+        metaheuristic_base: MetaheuristicsBasesVariants<ScoreType>,
     ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType> {
 
         // agent_id, round_robin_status_dict and channels will be set by Solver, not by agent 
@@ -244,32 +244,51 @@ where
 
     fn step(&mut self) {
 
-        //Box<dyn MetaheuristicBaseTrait<ScoreType> + Send>
 
-        let metaheuristic_base;
-        match &mut self.metaheuristic_base {
-            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
-            MetaheuristicsBasesVariants::GAB(gab) => metaheuristic_base = gab,
-        }
+    match &mut self.metaheuristic_base {
 
-        let samples: Vec<Array1<f64>> = metaheuristic_base.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-        //println!("sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+        //TODO: think about how to eliminate code copies
+        MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
+        MetaheuristicsBasesVariants::GAB(gab) => {
+            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
+            let mut found_acceptable = false;
+            while found_acceptable == false {
+                let samples: Vec<Array1<f64>> = gab.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+                let mut scores = self.score_requester.request_score(&samples);
+                match &self.score_precision {
+                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                    None => ()
+                }
+                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
+                for i in 0..samples.len() {
+                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
+                }
+                (new_population, found_acceptable) = gab.build_updated_population(&self.population, &candidates);
+            }
 
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let mut scores = self.score_requester.request_score(&samples);
-        match &self.score_precision {
-            Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-            None => ()
-        }
-        //println!("scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-        
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
-        for i in 0..samples.len() {
-            candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
-        }
-        self.population = metaheuristic_base.build_updated_population(&self.population, &candidates);
-        //println!("update population time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+            self.population = new_population;
+        },
+        MetaheuristicsBasesVariants::LA(la) => {
+            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
+            let mut found_acceptable = false;
+            while found_acceptable == false {
+                let samples: Vec<Array1<f64>> = la.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+                let mut scores = self.score_requester.request_score(&samples);
+                match &self.score_precision {
+                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                    None => ()
+                }
+                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
+                for i in 0..samples.len() {
+                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
+                }
+                (new_population, found_acceptable) = la.build_updated_population(&self.population, &candidates);
+            }
+
+            self.population = new_population;
+        },
+    }
+
     }
 
     fn send_updates(&mut self) -> Result<usize, usize> {
@@ -328,6 +347,7 @@ where
         match &self.metaheuristic_base {
             MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
             MetaheuristicsBasesVariants::GAB(gab) => current_agent_kind = gab.metaheuristic_kind.clone(),
+            MetaheuristicsBasesVariants::LA(la) => current_agent_kind = la.metaheuristic_kind.clone(),
         }
 
         let comparison_ids:Vec<usize>;
@@ -366,7 +386,7 @@ where
                     match self.logging_level {
                         SolverLoggingLevels::Info => {
                             let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                            let info_message = format!("{}, Agent: {:3}, Steps: {}, Global best score: {}, Solving time: {}", 
+                            let info_message = format!("{}, Agent: {:3}, Steps: {:10}, Global best score: {}, Solving time: {}", 
                                 Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time);
                             println!("{}", info_message);
                         },
