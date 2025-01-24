@@ -1,6 +1,6 @@
 
 use super::base::agent_base::Agent;
-use super::metaheuristic_bases::LateAcceptanceBase;
+use super::metaheuristic_bases::TabuSearchBase;
 use super::metaheuristic_bases::MetaheuristicsBasesVariants;
 use crate::agents::termination_strategies::TerminationStrategiesVariants;
 use crate::score_calculation::score_requesters::OOPScoreRequester;
@@ -13,24 +13,28 @@ use serde::Serialize;
 
 
 #[derive(Clone)]
-pub struct LateAcceptance<ScoreType>
+pub struct TabuSearch<ScoreType>
 where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
     population_size: usize, 
-    late_acceptance_size: usize,
+    neighbours_count: usize,
+    tabu_size: usize,
+    tabu_entity_rate: f64,
     mutation_rate_multiplier: Option<f64>, 
     migration_rate: f64, 
     migration_frequency: usize, 
     termination_strategy: TerminationStrategiesVariants<ScoreType>
 }
 
-impl<ScoreType> LateAcceptance<ScoreType>
+impl<ScoreType> TabuSearch<ScoreType>
 where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
     
     pub fn new (
         population_size: usize, 
-        late_acceptance_size: usize,
+        neighbours_count: usize,
+        tabu_size: usize,
+        tabu_entity_rate: f64,
         mutation_rate_multiplier: Option<f64>, 
         migration_rate: f64, 
         migration_frequency: usize, 
@@ -39,7 +43,9 @@ where
 
         Self {
             population_size: population_size, 
-            late_acceptance_size: late_acceptance_size,
+            neighbours_count: neighbours_count,
+            tabu_size: tabu_size,
+            tabu_entity_rate: tabu_entity_rate,
             mutation_rate_multiplier: mutation_rate_multiplier, 
             migration_rate: migration_rate, 
             migration_frequency: migration_frequency, 
@@ -58,10 +64,9 @@ where
         let semantic_groups_dict = score_requester.variables_manager.semantic_groups_map.clone();
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
-        let metaheuristic_base = LateAcceptanceBase::new(self.population_size, self.late_acceptance_size, 
-                                                                                 self.mutation_rate_multiplier, 
-                                                                                 semantic_groups_dict, discrete_ids);
-        let metaheuristic_base = MetaheuristicsBasesVariants::LAB(metaheuristic_base);
+        let metaheuristic_base = TabuSearchBase::new(self.population_size, self.neighbours_count, self.tabu_size, self.tabu_entity_rate, 
+                                                                     self.mutation_rate_multiplier, semantic_groups_dict, discrete_ids);
+        let metaheuristic_base = MetaheuristicsBasesVariants::TSB(metaheuristic_base);
         
         let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(self.migration_rate, 
                                                                                         self.migration_frequency, self.termination_strategy.clone(), 

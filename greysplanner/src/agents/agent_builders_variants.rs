@@ -1,6 +1,6 @@
 
 
-use super::{GeneticAlgorithm, LateAcceptance};
+use super::{GeneticAlgorithm, LateAcceptance, TabuSearch};
 use crate::score_calculation::scores::ScoreTrait;
 use std::ops::AddAssign;
 use std::fmt::{Debug, Display};
@@ -12,4 +12,5 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
     GA(GeneticAlgorithm<ScoreType>),
     LA(LateAcceptance<ScoreType>),
+    TS(TabuSearch<ScoreType>),
 }

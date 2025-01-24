@@ -125,7 +125,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     fn build_updated_population(
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
-        candidates: &Vec<Individual<ScoreType>>
+        candidates: &mut Vec<Individual<ScoreType>>
         ) -> (Vec<Individual<ScoreType>>, bool) {
         
         let candidate_to_compare_score;

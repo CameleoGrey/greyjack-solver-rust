@@ -17,7 +17,7 @@ pub struct VariablesManager {
     pub lower_bounds: Vec<f64>,
     pub upper_bounds: Vec<f64>,
 
-    pub semantic_groups_dict: HashMap<String, Vec<usize>>,
+    pub semantic_groups_map: HashMap<String, Vec<usize>>,
     pub semantic_group_keys: Vec<String>,
     pub n_semantic_groups: usize,
     pub discrete_ids: Option<Vec<usize>>
@@ -66,7 +66,7 @@ impl VariablesManager {
             lower_bounds: lower_bounds,
             upper_bounds: upper_bounds,
 
-            semantic_groups_dict: semantic_groups_dict,
+            semantic_groups_map: semantic_groups_dict,
             semantic_group_keys: semantic_group_keys,
             n_semantic_groups: n_semantic_groups,
             discrete_ids: discrete_ids_option
@@ -109,7 +109,7 @@ impl VariablesManager {
     pub fn get_random_semantic_group_ids(&self) -> (&Vec<usize>, &String) {
         let random_group_id = Uniform::new(0, self.n_semantic_groups).sample(&mut StdRng::from_entropy());
         let group_name = &self.semantic_group_keys[random_group_id];
-        let group_ids = self.semantic_groups_dict.get(group_name).unwrap();
+        let group_ids = self.semantic_groups_map.get(group_name).unwrap();
         return (group_ids, group_name);
     }
 

@@ -8,13 +8,13 @@ use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 use crate::utils::math_utils;
 
-pub struct BaseMoves {
+pub struct TabuMoves {
 
 }
 
-impl BaseMoves {
+impl TabuMoves {
 
-    #[inline]
+    #[inline(always)]
     pub fn change_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
         
         if current_change_count < 1 {
@@ -30,7 +30,7 @@ impl BaseMoves {
         return Some(changed_columns);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn swap_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if current_change_count < 2 {
@@ -48,7 +48,7 @@ impl BaseMoves {
         return Some(changed_columns);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn swap_edges_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() == 0 {
@@ -83,7 +83,7 @@ impl BaseMoves {
         return Some(changed_columns);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn insertion_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() <= 1 {
@@ -116,7 +116,7 @@ impl BaseMoves {
         return Some(changed_columns);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn scramble_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() < current_change_count - 1 {

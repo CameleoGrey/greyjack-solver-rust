@@ -263,12 +263,13 @@ where
                 for i in 0..samples.len() {
                     candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
                 }
-                (new_population, found_acceptable) = gab.build_updated_population(&self.population, &candidates);
+                (new_population, found_acceptable) = gab.build_updated_population(&self.population, &mut candidates);
             }
 
             self.population = new_population;
         },
-        MetaheuristicsBasesVariants::LA(la) => {
+        
+        MetaheuristicsBasesVariants::LAB(la) => {
             let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
             let mut found_acceptable = false;
             while found_acceptable == false {
@@ -282,11 +283,31 @@ where
                 for i in 0..samples.len() {
                     candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
                 }
-                (new_population, found_acceptable) = la.build_updated_population(&self.population, &candidates);
+                (new_population, found_acceptable) = la.build_updated_population(&self.population, &mut candidates);
             }
 
             self.population = new_population;
         },
+
+        MetaheuristicsBasesVariants::TSB(tsb) => {
+            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
+            let mut found_acceptable = false;
+            while found_acceptable == false {
+                let samples: Vec<Array1<f64>> = tsb.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+                let mut scores = self.score_requester.request_score(&samples);
+                match &self.score_precision {
+                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                    None => ()
+                }
+                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
+                for i in 0..samples.len() {
+                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
+                }
+                (new_population, found_acceptable) = tsb.build_updated_population(&self.population, &mut candidates);
+            }
+
+            self.population = new_population;
+        }
     }
 
     }
@@ -347,7 +368,8 @@ where
         match &self.metaheuristic_base {
             MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
             MetaheuristicsBasesVariants::GAB(gab) => current_agent_kind = gab.metaheuristic_kind.clone(),
-            MetaheuristicsBasesVariants::LA(la) => current_agent_kind = la.metaheuristic_kind.clone(),
+            MetaheuristicsBasesVariants::LAB(la) => current_agent_kind = la.metaheuristic_kind.clone(),
+            MetaheuristicsBasesVariants::TSB(tsb) => current_agent_kind = tsb.metaheuristic_kind.clone(),
         }
 
         let comparison_ids:Vec<usize>;

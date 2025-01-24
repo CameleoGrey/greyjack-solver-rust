@@ -257,7 +257,7 @@ where
             return df_column_var_ids;
         }
 
-        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<(AnyValue<'a>)>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
+        fn build_group_data_map<'a>(&mut self, samples_vec: &Vec<Vec<AnyValue<'a>>>) -> HashMap<String, HashMap<String, Vec<AnyValue<'a>>>> {
 
             //let start_time = chrono::Utc::now().timestamp_millis();
             if self.df_column_var_ids.len() == 0 {

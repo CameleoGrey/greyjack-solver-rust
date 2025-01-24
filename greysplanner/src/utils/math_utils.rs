@@ -46,3 +46,26 @@ where T: Clone {
 
     return chosen_objects;
 }
+
+/*pub fn select_non_tabu_ids<T>(objects: &Vec<T>, n: usize, group: bool) -> Vec<T>
+where T: Clone {
+
+
+
+    /*
+    def _select_non_tabu_ids(self, selection_size, group_name, right_end):
+        random_ids = []
+        while len(random_ids) != selection_size:
+            random_id = self.generator.integers(0, right_end, 1)[0]
+
+            if random_id not in self.tabu_ids_sets_dict[group_name]:
+                self.tabu_ids_sets_dict[group_name].add( random_id )
+                self.tabu_ids_list_dict[group_name].append( random_id )
+                random_ids.append( random_id )
+
+                if len(self.tabu_ids_list_dict[group_name]) > self.tabu_entity_size_dict[group_name]:
+                    self.tabu_ids_sets_dict[group_name].remove( self.tabu_ids_list_dict[group_name].pop(0) )
+
+        return random_ids
+    */
+}*/

@@ -58,7 +58,7 @@ where
         EntityVariants: CotwinEntityTrait {
 
         let score_requester = OOPScoreRequester::new(cotwin);
-        let semantic_groups_dict = score_requester.variables_manager.semantic_groups_dict.clone();
+        let semantic_groups_dict = score_requester.variables_manager.semantic_groups_map.clone();
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
         let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, 
