@@ -1,5 +1,7 @@
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use crate::score_calculation::score_requesters::VariablesManager;
 use ndarray::Array1;
 use ndarray_rand::RandomExt;
@@ -10,12 +12,62 @@ use crate::utils::math_utils;
 
 pub struct TabuMoves {
 
+    pub tabu_entity_rate: f64,
+    pub tabu_entity_size_map: HashMap<String, usize>,
+    pub tabu_ids_sets_map: HashMap<String, HashSet<usize>>,
+    pub tabu_ids_vecdeque_map: HashMap<String, VecDeque<usize>>,
+
 }
 
 impl TabuMoves {
 
-    #[inline(always)]
-    pub fn change_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn new(
+        tabu_entity_rate: f64,
+        tabu_entity_size_map: HashMap<String, usize>,
+        tabu_ids_sets_map: HashMap<String, HashSet<usize>>,
+        tabu_ids_vecdeque_map: HashMap<String, VecDeque<usize>>,
+    ) -> Self {
+
+        Self {
+            tabu_entity_rate: tabu_entity_rate,
+            tabu_entity_size_map: tabu_entity_size_map,
+            tabu_ids_sets_map: tabu_ids_sets_map,
+            tabu_ids_vecdeque_map: tabu_ids_vecdeque_map,
+        }
+    }
+
+    pub fn select_non_tabu_ids(&mut self, group_name: &String, selection_size: usize, right_end: usize) -> Vec<usize> {
+
+        let mut random_ids: Vec<usize> = Vec::new();
+        while random_ids.len() != selection_size {
+            let random_id = math_utils::get_random_id(0, right_end);
+
+            if self.tabu_ids_sets_map[group_name].contains(&random_id) == false {
+                self.tabu_ids_sets_map.get_mut(group_name).unwrap().insert(random_id);
+                self.tabu_ids_vecdeque_map.get_mut(group_name).unwrap().push_front(random_id);
+                random_ids.push(random_id);
+
+                if self.tabu_ids_vecdeque_map[group_name].len() > self.tabu_entity_size_map[group_name] {
+                    self.tabu_ids_sets_map.get_mut(group_name).unwrap().remove( 
+                        &self.tabu_ids_vecdeque_map.get_mut(group_name).unwrap().pop_back().unwrap()
+                    );
+                }
+            }
+
+        }
+
+        return random_ids;
+    }
+
+    #[inline]
+    pub fn change_move_base(
+        &mut self, 
+        candidate: &mut Array1<f64>, 
+        variables_manager: &VariablesManager,
+        mut current_change_count: usize, 
+        group_ids: &Vec<usize>,
+        group_name: &String,
+    ) -> Option<Vec<usize>> {
         
         if current_change_count < 1 {
             current_change_count = 1;
@@ -24,14 +76,26 @@ impl TabuMoves {
             return None;
         }
 
-        let changed_columns: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
+        let changed_columns: Vec<usize>;
+        if self.tabu_entity_rate == 0.0 {
+            changed_columns = math_utils::choice(group_ids, current_change_count, false);
+        } else {
+            changed_columns = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len());
+        }
         changed_columns.iter().for_each(|i| candidate[*i] = variables_manager.get_column_random_value(*i));
 
         return Some(changed_columns);
     }
 
-    #[inline(always)]
-    pub fn swap_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    #[inline]
+    pub fn swap_move_base(
+        &mut self, candidate: 
+        &mut Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        mut current_change_count: usize, 
+        group_ids: &Vec<usize>,
+        group_name: &String,
+    ) -> Option<Vec<usize>> {
 
         if current_change_count < 2 {
             current_change_count = 2;
@@ -40,7 +104,12 @@ impl TabuMoves {
             return None;
         }
 
-        let changed_columns: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
+        let changed_columns: Vec<usize>;
+        if self.tabu_entity_rate == 0.0 {
+            changed_columns = math_utils::choice(group_ids, current_change_count, false);
+        } else {
+            changed_columns = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len());
+        }
         for i in 1..current_change_count {
             candidate.swap(changed_columns[i-1], changed_columns[i]);
         }
@@ -48,8 +117,15 @@ impl TabuMoves {
         return Some(changed_columns);
     }
 
-    #[inline(always)]
-    pub fn swap_edges_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    #[inline]
+    pub fn swap_edges_move_base(
+        &mut self, 
+        candidate: &mut Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        mut current_change_count: usize, 
+        group_ids: &Vec<usize>,
+        group_name: &String,
+    ) -> Option<Vec<usize>> {
 
         if group_ids.len() == 0 {
             return None;
@@ -61,7 +137,12 @@ impl TabuMoves {
             current_change_count = group_ids.len()-1;
         }
 
-        let columns_to_change: Vec<usize> = math_utils::choice(&(0..(group_ids.len()-1)).collect(), current_change_count, false);
+        let columns_to_change: Vec<usize>;
+        if self.tabu_entity_rate == 0.0 {
+            columns_to_change = math_utils::choice(&(0..(group_ids.len()-1)).collect(), current_change_count, false);
+        } else {
+            columns_to_change = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len()-1);
+        }
 
         let mut edges: Vec<(usize, usize)> = Vec::new();
         let mut changed_columns: Vec<usize> = Vec::new();
@@ -83,14 +164,26 @@ impl TabuMoves {
         return Some(changed_columns);
     }
 
-    #[inline(always)]
-    pub fn insertion_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    #[inline]
+    pub fn insertion_move_base(
+        &mut self, 
+        candidate: &mut Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        mut current_change_count: usize, 
+        group_ids: &Vec<usize>,
+        group_name: &String
+    ) -> Option<Vec<usize>> {
 
         if group_ids.len() <= 1 {
             return None;
         }
 
-        let columns_to_change: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
+        let columns_to_change: Vec<usize>;
+        if self.tabu_entity_rate == 0.0 {
+            columns_to_change = math_utils::choice(group_ids, current_change_count, false);
+        } else {
+            columns_to_change = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len());
+        }
 
         let get_out_id = columns_to_change[0];
         let put_in_id = columns_to_change[1];
@@ -116,13 +209,27 @@ impl TabuMoves {
         return Some(changed_columns);
     }
 
-    #[inline(always)]
-    pub fn scramble_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    #[inline]
+    pub fn scramble_move_base(
+        &mut self, 
+        candidate: &mut Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        mut current_change_count: usize, 
+        group_ids: &Vec<usize>,
+        group_name: &String,
+    ) -> Option<Vec<usize>> {
 
         if group_ids.len() < current_change_count - 1 {
             return None;
         }
-        let current_start_id = math_utils::get_random_id(0, group_ids.len() - current_change_count);
+
+        let current_start_id: usize;
+        if self.tabu_entity_rate == 0.0 {
+            current_start_id = math_utils::get_random_id(0, group_ids.len() - current_change_count);
+        } else {
+            current_start_id = self.select_non_tabu_ids(group_name, 1, group_ids.len() - current_change_count)[0];
+        }
+
         let native_columns: Vec<usize> = (0..current_change_count).into_iter().map(|i| group_ids[current_start_id + i]).collect();
         let mut scrambled_columns = native_columns.clone();
         scrambled_columns.shuffle(&mut StdRng::from_entropy());

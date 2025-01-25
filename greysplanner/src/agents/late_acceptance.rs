@@ -15,7 +15,7 @@ use serde::Serialize;
 #[derive(Clone)]
 pub struct LateAcceptance<ScoreType>
 where
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
     population_size: usize, 
     late_acceptance_size: usize,
     mutation_rate_multiplier: Option<f64>, 
@@ -26,7 +26,7 @@ where
 
 impl<ScoreType> LateAcceptance<ScoreType>
 where
-    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
+    ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
     
     pub fn new (
         population_size: usize, 

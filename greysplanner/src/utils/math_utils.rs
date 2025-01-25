@@ -12,8 +12,8 @@ pub fn round(value: f64, precision: u64) -> f64 {
     value.floor() + ((value - value.floor()) * multiplier).floor() / multiplier
 }
 
-pub fn get_random_id(start_id: usize, end_id: usize) -> usize {
-    Uniform::new(start_id, end_id).sample(&mut StdRng::from_entropy())
+pub fn get_random_id(start_id: usize, end_exclusive: usize) -> usize {
+    Uniform::new(start_id, end_exclusive).sample(&mut StdRng::from_entropy())
 }
 
 pub fn choice<T>(objects: &Vec<T>, n: usize, replace: bool) -> Vec<T>

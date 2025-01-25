@@ -15,7 +15,7 @@ pub struct BaseMoves {
 impl BaseMoves {
 
     #[inline]
-    pub fn change_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn change_move_base(&self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
         
         if current_change_count < 1 {
             current_change_count = 1;
@@ -31,7 +31,7 @@ impl BaseMoves {
     }
 
     #[inline]
-    pub fn swap_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn swap_move_base(&self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if current_change_count < 2 {
             current_change_count = 2;
@@ -49,7 +49,7 @@ impl BaseMoves {
     }
 
     #[inline]
-    pub fn swap_edges_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn swap_edges_move_base(&self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() == 0 {
             return None;
@@ -84,7 +84,7 @@ impl BaseMoves {
     }
 
     #[inline]
-    pub fn insertion_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn insertion_move_base(&self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() <= 1 {
             return None;
@@ -117,7 +117,7 @@ impl BaseMoves {
     }
 
     #[inline]
-    pub fn scramble_move_base(candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
+    pub fn scramble_move_base(&self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, mut current_change_count: usize, group_ids: &Vec<usize>) -> Option<Vec<usize>> {
 
         if group_ids.len() < current_change_count - 1 {
             return None;

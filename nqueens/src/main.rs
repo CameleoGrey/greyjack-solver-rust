@@ -19,7 +19,7 @@ use crate::observers_examples::NQueensObserver;
 
 fn main() {
 
-    let mut nqueens_domain = NQueensDomainBuilder::build_domain(1024, 45);
+    let mut nqueens_domain = NQueensDomainBuilder::build_domain(1000, 45);
     let nqueens_cotwin_builder = NQueensCotwinBuilder::new();
     //println!("{}", nqueens_domain);
 

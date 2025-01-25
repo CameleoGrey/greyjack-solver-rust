@@ -5,46 +5,39 @@ use ndarray::Array1;
 
 pub trait MoveTrait {
 
-    fn get_needful_info_for_move<'d>(
+    fn get_necessary_info_for_move<'d>(
+        &self, 
         variables_manager: &'d VariablesManager, 
-        group_mutation_rates_dict: &HashMap<String, f64>, 
-        variables_count: usize
-    ) -> (&'d Vec<usize>, usize);
+    ) -> (&'d Vec<usize>, &'d String, usize);
 
     fn change_move(
+        &mut self, 
         candidate: &mut Array1<f64>, 
         variables_manager: &VariablesManager, 
-        group_mutation_rates_dict: &HashMap<String, f64>, 
-        variables_count: usize
     ) -> Option<Vec<usize>>;
 
     fn swap_move(
+        &mut self, 
         candidate: &mut Array1<f64>, 
         variables_manager: &VariablesManager, 
-        group_mutation_rates_dict: &HashMap<String, f64>, 
-        variables_count: usize
     ) -> Option<Vec<usize>>;
 
     fn swap_edges_move(
+        &mut self, 
         candidate: &mut Array1<f64>, 
         variables_manager: &VariablesManager, 
-        group_mutation_rates_dict: &HashMap<String, f64>, 
-        variables_count: usize
     ) -> Option<Vec<usize>>;
 
     fn insertion_move(
+        &mut self, 
         candidate: &mut Array1<f64>, 
         variables_manager: &VariablesManager, 
-        group_mutation_rates_dict: &HashMap<String, f64>, 
-        variables_count: usize
     ) -> Option<Vec<usize>>;
 
     fn scramble_move(
-
+        &mut self, 
         candidate: &mut Array1<f64>, 
         variables_manager: &VariablesManager, 
-        group_mutation_rates_dict: 
-        &HashMap<String, f64>, variables_count: usize
     ) -> Option<Vec<usize>>;
 
 }
