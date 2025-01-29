@@ -110,6 +110,7 @@ impl BaseMoves {
             return None;
         }
 
+    
         old_ids.iter().zip(shifted_ids.iter()).for_each(|(oi, si)| candidate.swap(*oi, *si));
         let changed_columns = old_ids;
 

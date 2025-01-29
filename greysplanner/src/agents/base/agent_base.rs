@@ -16,6 +16,7 @@ use crate::solver::observer_trait::ObserverTrait;
 use super::AgentToAgentUpdate;
 use super::AgentStatuses;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::fmt::{Debug, Display};
 use std::ops::AddAssign;
@@ -397,6 +398,8 @@ where
             if self.agent_top_individual.score < global_top_individual.score {
                 *global_top_individual = self.agent_top_individual.clone();
                 *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
+
+                //println!("{:?}", *global_top_individual);
 
                 if self.observers_count > 0 {
                     self.notify_observers(global_top_json.clone());

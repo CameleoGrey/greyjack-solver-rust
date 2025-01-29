@@ -280,7 +280,7 @@ impl MoveTrait for GeneticAlgorithmBase {
             candidate: &mut Array1<f64>, 
             variables_manager: &VariablesManager, 
         ) -> Option<Vec<usize>> {
-        
+            
             let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
 

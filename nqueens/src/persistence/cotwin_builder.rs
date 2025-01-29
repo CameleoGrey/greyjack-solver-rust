@@ -11,13 +11,7 @@ use crate::score::NQueensScoreCalculator;
 use crate::domain::ChessBoard;
 use polars::datatypes::AnyValue;
 use std::collections::HashMap;
-use greysplanner::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
 
-
-pub enum DomainVariants {
-    CB(ChessBoard)
-}
 
 pub enum EntityVariants<'a> {
     CotQueen(CotQueen<'a>)

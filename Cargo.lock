@@ -2002,6 +2002,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tsp"
+version = "0.1.0"
+dependencies = [
+ "greysplanner",
+ "ndarray",
+ "polars",
+ "regex",
+ "serde_json",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

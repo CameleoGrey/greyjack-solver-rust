@@ -159,7 +159,6 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 
             //VecDeque variant
             self.late_scores.push_front(candidate_score);
-            //println!("{:?}, {:?}", self.late_scores, candidate_to_compare_score);
             if self.late_scores.len() > self.late_acceptance_size {
 
                 // vec variant with sorting

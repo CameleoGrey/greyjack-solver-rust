@@ -25,7 +25,11 @@ impl NQueensScoreCalculator {
         return score_calculator;
     }
 
-    fn all_different(planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<SimpleScore> {
+    fn all_different(
+        planning_entity_dfs: &HashMap<String, DataFrame>, 
+        problem_fact_dfs: &HashMap<String, DataFrame>,
+        utility_objects: &HashMap<String, UtilityObjectVariants>,
+    ) -> Vec<SimpleScore> {
 
         // clone() is cheap operation for Polars DataFrame (see docs and forums)
         let queens_df = planning_entity_dfs.get("queens").unwrap().clone();
@@ -64,7 +68,11 @@ impl NQueensScoreCalculator {
         return scores;
     }
 
-    fn different_rows(planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<SimpleScore> {
+    fn different_rows(
+        planning_entity_dfs: &HashMap<String, DataFrame>, 
+        problem_fact_dfs: &HashMap<String, DataFrame>,
+        utility_objects: &HashMap<String, UtilityObjectVariants>,
+    ) -> Vec<SimpleScore> {
 
         // clone() is cheap operation for Polars DataFrame (see docs and forums)
         let queens_df = planning_entity_dfs.get("queens").unwrap().clone();
@@ -89,7 +97,11 @@ impl NQueensScoreCalculator {
         return scores;
     }
 
-    fn different_descending_diagonals(planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<SimpleScore> {
+    fn different_descending_diagonals(
+        planning_entity_dfs: &HashMap<String, DataFrame>, 
+        problem_fact_dfs: &HashMap<String, DataFrame>,
+        utility_objects: &HashMap<String, UtilityObjectVariants>,
+    ) -> Vec<SimpleScore> {
 
         // clone() is cheap operation for Polars DataFrame (see docs and forums)
         let queens_df = planning_entity_dfs.get("queens").unwrap().clone();
@@ -115,7 +127,11 @@ impl NQueensScoreCalculator {
         return scores;
     }
 
-    fn different_ascending_diagonals(planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<SimpleScore> {
+    fn different_ascending_diagonals(
+        planning_entity_dfs: &HashMap<String, DataFrame>, 
+        problem_fact_dfs: &HashMap<String, DataFrame>,
+        utility_objects: &HashMap<String, UtilityObjectVariants>,
+    ) -> Vec<SimpleScore> {
 
         // clone() is cheap operation for Polars DataFrame (see docs and forums)
         let queens_df = planning_entity_dfs.get("queens").unwrap().clone();

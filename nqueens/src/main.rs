@@ -19,7 +19,7 @@ use crate::observers_examples::NQueensObserver;
 
 fn main() {
 
-    let mut nqueens_domain = NQueensDomainBuilder::build_domain(1000, 45);
+    let mut nqueens_domain = NQueensDomainBuilder::build_domain(256, 45);
     let nqueens_cotwin_builder = NQueensCotwinBuilder::new();
     //println!("{}", nqueens_domain);
 
@@ -28,8 +28,8 @@ fn main() {
     //let termination_strategy = StL(StepsLimit::new(20));
     //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
     
-    let agent_builder = TS(TabuSearch::new(1, 128, 0, 0.2, Some(1.0), 0.00001, 1, termination_strategy));
-    //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.00001, 1, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(1, 128, 0, 0.2, Some(1.0), 0.00001, 1, termination_strategy));
+    let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.00001, 1, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(1, 10, Some(1.0), 0.00001, 1, termination_strategy));
 
     // example of optional observers

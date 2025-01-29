@@ -1,6 +1,6 @@
 [workspace]
 resolver = "1"
-members = ["greysplanner", "nqueens",]
+members = ["greysplanner", "nqueens", "tsp",]
 
 [profile.release]
 #lto = true
