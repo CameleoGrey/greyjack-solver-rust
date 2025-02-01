@@ -6,11 +6,11 @@ use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::collections::HashMap;
 use polars::prelude::*;
 
-pub struct NQueensScoreCalculator {
+pub struct ScoreCalculator {
 
 }
 
-impl NQueensScoreCalculator {
+impl ScoreCalculator {
     pub fn new() -> OOPScoreCalculator<UtilityObjectVariants, SimpleScore> {
         let mut score_calculator= OOPScoreCalculator::new();
 
@@ -28,7 +28,7 @@ impl NQueensScoreCalculator {
     fn all_different(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
-        utility_objects: &HashMap<String, UtilityObjectVariants>,
+        utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) -> Vec<SimpleScore> {
 
         // clone() is cheap operation for Polars DataFrame (see docs and forums)

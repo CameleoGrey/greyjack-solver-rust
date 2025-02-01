@@ -90,7 +90,7 @@ impl BaseMoves {
             return None;
         }
 
-        let columns_to_change: Vec<usize> = math_utils::choice(group_ids, current_change_count, false);
+        let columns_to_change: Vec<usize> = math_utils::choice(&(0..(group_ids.len()-1)).collect(), current_change_count, false);
 
         let get_out_id = columns_to_change[0];
         let put_in_id = columns_to_change[1];
@@ -110,7 +110,6 @@ impl BaseMoves {
             return None;
         }
 
-    
         old_ids.iter().zip(shifted_ids.iter()).for_each(|(oi, si)| candidate.swap(*oi, *si));
         let changed_columns = old_ids;
 

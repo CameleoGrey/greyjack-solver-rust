@@ -51,8 +51,8 @@ where
 
             let planning_entities_column_map = Self::build_column_map(&cotwin.planning_entities);
             let problem_facts_column_map = Self::build_column_map(&cotwin.problem_facts);
-            let planning_entity_dfs = Self::build_group_dfs(&cotwin.planning_entities, &planning_entities_column_map);
-            let problem_fact_dfs = Self::build_group_dfs(&cotwin.problem_facts, &problem_facts_column_map);
+            let planning_entity_dfs = Self::build_group_dfs(&cotwin.planning_entities, &planning_entities_column_map, true);
+            let problem_fact_dfs = Self::build_group_dfs(&cotwin.problem_facts, &problem_facts_column_map, false);
             let dfs_for_scoring = planning_entity_dfs.clone();
 
             
@@ -148,7 +148,7 @@ where
             return column_map;
         }
     
-        fn build_group_dfs(entity_groups: &HashMap<String, Vec<EntityVariants>>, column_map: &HashMap<String, Vec<String>>) -> HashMap<String, DataFrame> {
+        fn build_group_dfs(entity_groups: &HashMap<String, Vec<EntityVariants>>, column_map: &HashMap<String, Vec<String>>, is_planning: bool) -> HashMap<String, DataFrame> {
 
             let mut df_map: HashMap<String, DataFrame> = HashMap::new();
 
@@ -188,10 +188,12 @@ where
                     columns_vec.push(entity_field_column);
                 }
                 
-                column_names.push("sample_id".to_string());
-                let sample_column_values= vec![AnyValue::UInt64(0); entities_count];
-                let sample_id_column = Column::new("sample_id".into(), sample_column_values);
-                columns_vec.push(sample_id_column);
+                if is_planning == true {
+                    column_names.push("sample_id".to_string());
+                    let sample_column_values= vec![AnyValue::UInt64(0); entities_count];
+                    let sample_id_column = Column::new("sample_id".into(), sample_column_values);
+                    columns_vec.push(sample_id_column);
+                }
 
                 let df = DataFrame::new(columns_vec).unwrap();
                 df_map.insert(df_name.clone(), df);
@@ -268,21 +270,12 @@ where
             let n_variables = self.variables_manager.variables_count;
 
             for (df_name, col_name) in self.df_column_var_ids.keys() {
-                group_data_map.insert(df_name.clone(), HashMap::new());
+                if group_data_map.contains_key(df_name) == false {
+                    group_data_map.insert(df_name.clone(), HashMap::new());
+                }
                 group_data_map.get_mut(df_name).unwrap().insert(col_name.clone(), Vec::new());
             }
 
-            /*let samples_count = samples_vec.len();
-            for i in 0..samples_count {
-                for j in 0..n_variables {
-                    group_data_map
-                    .get_mut(&self.var_id_to_df_name[j]).unwrap()
-                    .get_mut(&self.var_id_to_col_name[j]).unwrap()
-                    .push(samples_vec[i][j].clone());
-                }
-            }*/
-
-            // much faster
             let stub_collection_1: () = self.df_column_var_ids.iter().map(|(df_col_name, var_ids)| {
                 let stub_collection_2: () = samples_vec.iter().map(|sample_vec| {
                     let mut current_sample_column: Vec<AnyValue> = var_ids.iter().map(|i| sample_vec[*i].clone()).collect();

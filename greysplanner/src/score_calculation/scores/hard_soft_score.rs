@@ -10,8 +10,8 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct HardSoftScore {
-    hard_score: f64,
-    soft_score: f64
+    pub hard_score: f64,
+    pub soft_score: f64
 }
 
 impl HardSoftScore {

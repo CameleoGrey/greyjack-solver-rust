@@ -9,11 +9,11 @@ use greysplanner::utils::math_utils::round;
 
 
 
-pub struct TSPDomainBuilder {
+pub struct DomainBuilder {
 
 }
 
-impl TSPDomainBuilder {
+impl DomainBuilder {
 
     pub fn build_domain(tsp_file_path: &str) -> TravelSchedule {
 

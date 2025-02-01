@@ -6,11 +6,11 @@ use polars::datatypes::AnyValue;
 use serde_json::*;
 
 
-pub struct TSPDomainUpdater {
+pub struct DomainUpdater {
     
 }
 
-impl TSPDomainUpdater {
+impl DomainUpdater {
 
     pub fn update_domain(domain: &mut TravelSchedule, solution: Value) {
 

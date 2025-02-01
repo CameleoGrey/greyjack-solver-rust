@@ -1,5 +1,5 @@
 
 
-pub mod nqueens_score_calculator;
+pub mod score_calculator;
 
-pub use nqueens_score_calculator::NQueensScoreCalculator;
+pub use score_calculator::ScoreCalculator;

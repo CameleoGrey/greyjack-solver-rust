@@ -8,11 +8,11 @@ use polars::prelude::*;
 use ndarray::{Array, Array2};
 
 
-pub struct TSPScoreCalculator {
+pub struct ScoreCalculator {
 
 }
 
-impl TSPScoreCalculator {
+impl ScoreCalculator {
 
     pub fn new() -> OOPScoreCalculator<UtilityObjectVariants, HardSoftScore> {
 
@@ -27,7 +27,7 @@ impl TSPScoreCalculator {
     fn no_duplicating_stops_constraint(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
-        utility_objects: &HashMap<String, UtilityObjectVariants>,
+        utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) -> Vec<HardSoftScore> {
 
         let path_stops_df = planning_entity_dfs["path_stops"].clone();
@@ -58,7 +58,7 @@ impl TSPScoreCalculator {
     fn minimize_distance(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
-        utility_objects: &HashMap<String, UtilityObjectVariants>,
+        utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) -> Vec<HardSoftScore> {
 
         let path_stops_df = planning_entity_dfs["path_stops"].clone();

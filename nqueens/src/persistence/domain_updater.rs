@@ -7,11 +7,11 @@ use serde_json::Value;
 use serde_json;
 
 
-pub struct NQueensDomainUpdater {
+pub struct DomainUpdater {
 
 }
 
-impl NQueensDomainUpdater {
+impl DomainUpdater {
 
     pub fn update_domain(domain: &mut ChessBoard, solution: Value) {
 

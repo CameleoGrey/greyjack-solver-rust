@@ -7,7 +7,7 @@ use greysplanner::cotwin::CotwinEntityTrait;
 use greysplanner::score_calculation::scores::SimpleScore;
 use greysplanner::variables::GPIntegerVar;
 use crate::cotwin::CotQueen;
-use crate::score::NQueensScoreCalculator;
+use crate::score::ScoreCalculator;
 use crate::domain::ChessBoard;
 use polars::datatypes::AnyValue;
 use std::collections::HashMap;
@@ -28,11 +28,11 @@ impl<'a> CotwinEntityTrait for EntityVariants<'a> {
 pub enum UtilityObjectVariants {}
 
 #[derive(Clone)]
-pub struct NQueensCotwinBuilder {
+pub struct CotwinBuilder {
 
 }
 
-impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for NQueensCotwinBuilder
+impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
  {
     fn new() -> Self {
         Self{}
@@ -67,14 +67,14 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
         let mut nqueens_cotwin = Cotwin::new();
         nqueens_cotwin.add_planning_entities("queens".to_string(), cot_queens);
 
-        let score_calculator = NQueensScoreCalculator::new();
+        let score_calculator = ScoreCalculator::new();
         nqueens_cotwin.add_score_calculator(score_calculator);
 
         return nqueens_cotwin;
     }
 }
 
-impl NQueensCotwinBuilder {
+impl CotwinBuilder {
 }
 
-unsafe impl Send for NQueensCotwinBuilder {}
+unsafe impl Send for CotwinBuilder {}

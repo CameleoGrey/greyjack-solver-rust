@@ -2,7 +2,7 @@
 
 use crate::domain::TravelSchedule;
 use crate::cotwin::CotStop;
-use crate::score::TSPScoreCalculator;
+use crate::score::ScoreCalculator;
 use greysplanner::cotwin::{Cotwin, CotwinEntityTrait, CotwinValueTypes, CotwinBuilderTrait};
 use greysplanner::score_calculation::scores::HardSoftScore;
 use greysplanner::variables::GPIntegerVar;
@@ -28,11 +28,11 @@ pub enum UtilityObjectVariants {
 
 
 #[derive(Clone)]
-pub struct TSPCotwinBuilder {
+pub struct CotwinBuilder {
     
 }
 
-impl TSPCotwinBuilder {
+impl CotwinBuilder {
     
     fn build_planning_stops<'a>(domain: &TravelSchedule) -> Vec<EntityVariants<'a>> {
 
@@ -54,7 +54,7 @@ impl TSPCotwinBuilder {
     }
 }
 
-impl<'a> CotwinBuilderTrait<TravelSchedule, EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> for TSPCotwinBuilder {
+impl<'a> CotwinBuilderTrait<TravelSchedule, EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> for CotwinBuilder {
 
     fn new() -> Self {
         Self{}
@@ -65,7 +65,7 @@ impl<'a> CotwinBuilderTrait<TravelSchedule, EntityVariants<'a>, UtilityObjectVar
         let mut tsp_cotwin = Cotwin::new();
         tsp_cotwin.add_planning_entities("path_stops".to_string(), Self::build_planning_stops(&domain));
 
-        let mut score_calculator = TSPScoreCalculator::new();
+        let mut score_calculator = ScoreCalculator::new();
         score_calculator.add_utility_object("distance_matrix".to_string(), UtilityObjectVariants::DistanceMatrix((domain.distance_matrix)));
         tsp_cotwin.add_score_calculator(score_calculator);
 

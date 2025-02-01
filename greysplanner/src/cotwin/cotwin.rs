@@ -41,7 +41,7 @@ where
         self.score_calculator = score_calculator;
     }
 
-    pub fn get_score(&self, planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<ScoreType>{
+    pub fn get_score(&mut self, planning_entity_dfs: &HashMap<String, DataFrame>, problem_fact_dfs: &HashMap<String, DataFrame>) -> Vec<ScoreType>{
         self.score_calculator.get_score(planning_entity_dfs, problem_fact_dfs)
     }
 

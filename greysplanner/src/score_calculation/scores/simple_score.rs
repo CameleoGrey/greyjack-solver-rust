@@ -9,7 +9,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct SimpleScore {
-    simple_value: f64
+    pub simple_value: f64
 }
 
 impl SimpleScore {
