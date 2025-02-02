@@ -1,7 +1,7 @@
 
 
 use serde_json::Value;
-use greysplanner::solver::ObserverTrait;
+use greyjack::solver::ObserverTrait;
 
 /*
 Example of observer. Observer can be almost all, what you want. For example, your web app,

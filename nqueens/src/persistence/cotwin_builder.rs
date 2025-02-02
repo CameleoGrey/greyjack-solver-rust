@@ -1,11 +1,11 @@
 
 
-use greysplanner::cotwin::Cotwin;
-use greysplanner::cotwin::CotwinBuilderTrait;
-use greysplanner::cotwin::CotwinValueTypes;
-use greysplanner::cotwin::CotwinEntityTrait;
-use greysplanner::score_calculation::scores::SimpleScore;
-use greysplanner::variables::GPIntegerVar;
+use greyjack::cotwin::Cotwin;
+use greyjack::cotwin::CotwinBuilderTrait;
+use greyjack::cotwin::CotwinValueTypes;
+use greyjack::cotwin::CotwinEntityTrait;
+use greyjack::score_calculation::scores::SimpleScore;
+use greyjack::variables::GJInteger;
 use crate::cotwin::CotQueen;
 use crate::score::ScoreCalculator;
 use crate::domain::ChessBoard;
@@ -45,11 +45,10 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
         let mut cot_queens: Vec<EntityVariants> = Vec::new();
 
         for i in 0..n {
-            let queen_id  = CotwinValueTypes::PolarsAnyValue(AnyValue::UInt64(i));
-            let column_id = CotwinValueTypes::PolarsAnyValue(AnyValue::UInt64(i));
-
-            let planning_row_id = CotwinValueTypes::GPIntegerVar(
-                GPIntegerVar::new(&format!("queen_{}_row_id", i), 
+            let queen_id  = CotwinValueTypes::PAV(AnyValue::UInt64(i));
+            let column_id = CotwinValueTypes::PAV(AnyValue::UInt64(i));
+            let planning_row_id = CotwinValueTypes::GJI(
+                GJInteger::new(&format!("queen_{}_row_id", i), 
                 Some(queens[i as usize].row.row_id as i64), 
                 0, (n-1) as i64, false, None)
             );

@@ -541,7 +541,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
-name = "greysplanner"
+name = "greyjack"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -868,7 +868,7 @@ name = "nqueens"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "greysplanner",
+ "greyjack",
  "ndarray",
  "polars",
  "rand",
@@ -2005,7 +2005,7 @@ dependencies = [
 name = "tsp"
 version = "0.1.0"
 dependencies = [
- "greysplanner",
+ "greyjack",
  "ndarray",
  "polars",
  "regex",
@@ -2058,7 +2058,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vrp"
 version = "0.1.0"
 dependencies = [
- "greysplanner",
+ "greyjack",
  "ndarray",
  "polars",
  "regex",

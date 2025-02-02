@@ -1,7 +1,7 @@
 
 
 use crate::domain::{queen, ChessBoard};
-use greysplanner::score_calculation::scores::SimpleScore;
+use greyjack::score_calculation::scores::SimpleScore;
 use polars::prelude::AnyValue;
 use serde_json::Value;
 use serde_json;

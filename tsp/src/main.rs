@@ -7,14 +7,14 @@ mod persistence;
 
 use std::fs;
 use std::path::{PathBuf, Path};
-use greysplanner::cotwin::CotwinBuilderTrait;
-use greysplanner::score_calculation::scores::HardSoftScore;
+use greyjack::cotwin::CotwinBuilderTrait;
+use greyjack::score_calculation::scores::HardSoftScore;
 use persistence::{CotwinBuilder, DomainBuilder, DomainUpdater};
-use greysplanner::solver::{ObserverTrait, Solver, SolverLoggingLevels};
-use greysplanner::agents::{GeneticAlgorithm, LateAcceptance, TabuSearch};
-use greysplanner::agents::AgentBuildersVariants::*;
-use greysplanner::agents::termination_strategies::*;
-use greysplanner::agents::termination_strategies::TerminationStrategiesVariants::*;
+use greyjack::solver::{ObserverTrait, Solver, SolverLoggingLevels};
+use greyjack::agents::{GeneticAlgorithm, LateAcceptance, TabuSearch};
+use greyjack::agents::AgentBuildersVariants::*;
+use greyjack::agents::termination_strategies::*;
+use greyjack::agents::termination_strategies::TerminationStrategiesVariants::*;
 
 
 fn main() {

@@ -6,13 +6,13 @@ mod score;
 mod persistence;
 
 use std::path::{PathBuf, Path};
-use greysplanner::cotwin::CotwinBuilderTrait;
+use greyjack::cotwin::CotwinBuilderTrait;
 use persistence::{CotwinBuilder, DomainBuilder, DomainUpdater};
-use greysplanner::solver::{ObserverTrait, Solver, SolverLoggingLevels};
-use greysplanner::agents::{GeneticAlgorithm, LateAcceptance, TabuSearch};
-use greysplanner::agents::AgentBuildersVariants::*;
-use greysplanner::agents::termination_strategies::*;
-use greysplanner::agents::termination_strategies::TerminationStrategiesVariants::*;
+use greyjack::solver::{ObserverTrait, Solver, SolverLoggingLevels};
+use greyjack::agents::{GeneticAlgorithm, LateAcceptance, TabuSearch};
+use greyjack::agents::AgentBuildersVariants::*;
+use greyjack::agents::termination_strategies::*;
+use greyjack::agents::termination_strategies::TerminationStrategiesVariants::*;
 
 
 fn main() {
@@ -32,11 +32,11 @@ fn main() {
     //let termination_strategy = ScL(ScoreLimit::new(HardSoftScore::new(0.0, 0.0)));
     //let termination_strategy = TSL(TimeSpentLimit::new(5*1000));
     //let termination_strategy = StL(StepsLimit::new(10));
-    let termination_strategy = SNI(ScoreNoImprovement::new(15*1000));
+    let termination_strategy = SNI(ScoreNoImprovement::new(30*1000));
     
-    let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, Some(1.0), 0.05, 0.00001, 10, termination_strategy));
+    let agent_builder = GA(GeneticAlgorithm::new(128, 0.8, Some(1.0), 0.1, 0.00001, 10, termination_strategy));
     //let agent_builder = TS(TabuSearch::new(1, 128, 0, 0.2, Some(1.0), 0.00001, 10, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(1, 20, Some(1.0), 0.00001, 100, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(1, 20, Some(1.0), 0.00001, 1000, termination_strategy));
 
     // change logging_level to SolverLoggingLevels::Silent for max performance
     let solution = Solver::solve(

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use greysplanner::cotwin::{CotwinEntityTrait, CotwinValueTypes};
+use greyjack::cotwin::{CotwinEntityTrait, CotwinValueTypes};
 
 pub struct CotStop<'a> {
     pub stop_id: CotwinValueTypes<'a>,

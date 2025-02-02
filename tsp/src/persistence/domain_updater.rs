@@ -1,7 +1,7 @@
 
 
 use crate::domain::TravelSchedule;
-use greysplanner::score_calculation::scores::HardSoftScore;
+use greyjack::score_calculation::scores::HardSoftScore;
 use polars::datatypes::AnyValue;
 use serde_json::*;
 

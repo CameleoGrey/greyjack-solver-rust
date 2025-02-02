@@ -3,9 +3,9 @@
 use crate::domain::TravelSchedule;
 use crate::cotwin::CotStop;
 use crate::score::ScoreCalculator;
-use greysplanner::cotwin::{Cotwin, CotwinEntityTrait, CotwinValueTypes, CotwinBuilderTrait};
-use greysplanner::score_calculation::scores::HardSoftScore;
-use greysplanner::variables::GPIntegerVar;
+use greyjack::cotwin::{Cotwin, CotwinEntityTrait, CotwinValueTypes, CotwinBuilderTrait};
+use greyjack::score_calculation::scores::HardSoftScore;
+use greyjack::variables::GJInteger;
 use std::collections::HashMap;
 use polars::datatypes::AnyValue;
 
@@ -43,8 +43,8 @@ impl CotwinBuilder {
             //let current_location = &domain.locations_vec[i];
             let current_stop = EntityVariants::CotStop(
                 CotStop {
-                stop_id: CotwinValueTypes::PolarsAnyValue(AnyValue::UInt64(i as u64)),
-                locations_vec_id: CotwinValueTypes::GPIntegerVar(GPIntegerVar::new(&format!("stop_{}_id", i), Some((i+1) as i64), 1, (n_locations-1) as i64, false, None))
+                stop_id: CotwinValueTypes::PAV(AnyValue::UInt64(i as u64)),
+                locations_vec_id: CotwinValueTypes::GJI(GJInteger::new(&format!("stop_{}_id", i), Some((i+1) as i64), 1, (n_locations-1) as i64, false, None))
             });
 
             planning_stops_vec.push(current_stop);

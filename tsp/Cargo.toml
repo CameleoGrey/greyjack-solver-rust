@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-greysplanner = {path = "../greysplanner"}
+greyjack = {path = "../greyjack"}
 polars = { version = "0.45.1", features = ["lazy", "ndarray", "partition_by"] }
 regex = "1.11.1"
 ndarray = "0.16.1"

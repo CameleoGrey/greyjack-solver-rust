@@ -1,7 +1,7 @@
 
 
 use std::collections::HashMap;
-use greysplanner::cotwin::{CotwinEntityTrait, CotwinValueTypes};
+use greyjack::cotwin::{CotwinEntityTrait, CotwinValueTypes};
 
 pub struct CotVehicle<'a> {
 

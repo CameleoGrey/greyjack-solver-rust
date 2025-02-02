@@ -1,7 +1,7 @@
 
 
-use greysplanner::score_calculation::score_calculators::OOPScoreCalculator;
-use greysplanner::score_calculation::scores::SimpleScore;
+use greyjack::score_calculation::score_calculators::OOPScoreCalculator;
+use greyjack::score_calculation::scores::SimpleScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::collections::HashMap;
 use polars::prelude::*;

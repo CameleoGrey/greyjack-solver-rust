@@ -1,7 +1,7 @@
 
 
-use greysplanner::cotwin::CotwinEntityTrait;
-use greysplanner::cotwin::CotwinValueTypes;
+use greyjack::cotwin::CotwinEntityTrait;
+use greyjack::cotwin::CotwinValueTypes;
 use std::collections::HashMap;
 
 pub struct CotQueen<'a> {
