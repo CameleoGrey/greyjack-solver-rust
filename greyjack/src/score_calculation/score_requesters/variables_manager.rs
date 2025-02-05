@@ -152,6 +152,30 @@ impl VariablesManager {
         return values_map;
     }
 
+    pub fn inverse_transform_deltas<'a>(&self, deltas: &Vec<Vec<(usize, f64)>>) -> Vec<Vec<(usize, AnyValue<'a>)>> {
+
+
+        let inverted_deltas: Vec<Vec<(usize, AnyValue<'a>)>> =
+        deltas.iter().map(|current_deltas| {
+            let current_inverted_deltas: Vec<(usize, AnyValue<'a>)> =
+            current_deltas.iter().map(|id_value_tuple| {
+                let inverted_value;
+                match &self.variables_vec[id_value_tuple.0] {
+                    PlanningVariablesVariants::GJF(float_var) => {
+                        inverted_value = AnyValue::Float64(float_var.inverse_transform(id_value_tuple.1))
+                    }
+                    PlanningVariablesVariants::GJI(int_var) => {
+                        inverted_value = AnyValue::Int64(int_var.inverse_transform(id_value_tuple.1))
+                    }
+                }
+                return (id_value_tuple.0, inverted_value);
+            }).collect();
+            return current_inverted_deltas;
+        }).collect();
+
+        return inverted_deltas;
+    }
+
     pub fn get_variables_names_vec(&self) -> Vec<String> {
         self.variables_vec.iter().map(|variable| {
             match variable {

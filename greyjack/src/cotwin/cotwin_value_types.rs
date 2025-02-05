@@ -2,13 +2,13 @@
 
 use crate::variables::GJFloat;
 use crate::variables::GJInteger;
-use polars::datatypes::AnyValue;
+use polars::datatypes::{AnyValue, *};
 
 #[derive(Debug, Clone)]
 pub enum CotwinValueTypes<'a> {
     GJF(GJFloat),
     GJI(GJInteger),
-    PAV(AnyValue<'a>) //PolarsAnyValue
+    PAV(AnyValue<'a>) //PolarsAnyValue,
 }
 
 #[cfg(test)]

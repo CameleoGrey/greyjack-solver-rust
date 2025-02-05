@@ -3,6 +3,7 @@
 use crate::agents::termination_strategies::TerminationStrategiesVariants;
 use crate::agents::termination_strategies::TerminationStrategiesVariants::*;
 use crate::agents::termination_strategies::TerminationStrategyTrait;
+use crate::score_calculation::score_calculators::ScoreCalculatorVariants;
 use crate::score_calculation::score_requesters::OOPScoreRequester;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
@@ -56,6 +57,7 @@ where
 
     pub updates_to_agent_sender: Option<Sender<AgentToAgentUpdate<ScoreType>>>,
     pub updates_for_agent_receiver: Option<Receiver<AgentToAgentUpdate<ScoreType>>>,
+    pub received_fresh_candidate: bool,
     pub solving_start: i64,
     pub step_id: u64,
     pub logging_level: SolverLoggingLevels,
@@ -105,6 +107,7 @@ where
             round_robin_status_vec: Vec::new(), // setups by Solver
             updates_to_agent_sender: None, // setups by Solver
             updates_for_agent_receiver: None, // setups by Solver
+            received_fresh_candidate: true,
             alive_agents_count: 1, // setups by Solver
             comparisons_to_global_count: 0,
             solving_start: Utc::now().timestamp_millis(),
@@ -131,7 +134,13 @@ where
         loop {
 
             match self.agent_status {
-                AgentStatuses::Alive => self.step(),
+                AgentStatuses::Alive => {
+                    match &self.score_requester.cotwin.score_calculator {
+                        ScoreCalculatorVariants::PSC(psc) => self.step_plain(),
+                        ScoreCalculatorVariants::ISC(isc) => self.step_incremental(),
+                        ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder.")
+                    }
+                },
                 AgentStatuses::Dead => (),
             }
             self.step_id += 1;
@@ -177,15 +186,29 @@ where
     fn init_population(&mut self) {
 
 
-        let mut samples:Vec<Array1<f64>> = Vec::new();
-        for i in 0..self.population_size {
-            let generated_sample = self.score_requester.variables_manager.sample_variables();
-            samples.push(generated_sample);
-        }
-        let scores = self.score_requester.request_score(&samples);
+        match &self.score_requester.cotwin.score_calculator {
+            ScoreCalculatorVariants::PSC(psc) => {
+                let mut samples:Vec<Array1<f64>> = Vec::new();
+                for i in 0..self.population_size {
+                    let generated_sample = self.score_requester.variables_manager.sample_variables();
+                    samples.push(generated_sample);
+                }
+                let scores = self.score_requester.request_score_plain(&samples);
 
-        for i in 0..self.population_size {
-            self.population.push(Individual::new(samples[i].clone(), scores[i].clone()));
+                for i in 0..self.population_size {
+                    self.population.push(Individual::new(samples[i].clone(), scores[i].clone()));
+                }
+            },
+
+            ScoreCalculatorVariants::ISC(isc) => {
+                let generated_sample = self.score_requester.variables_manager.sample_variables();
+                let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
+                deltas.push(generated_sample.iter().enumerate().map(|i_val| (i_val.0, i_val.1.clone())).collect());
+                let scores = self.score_requester.request_score_incremental(&generated_sample, &deltas, true);
+                self.population.push(Individual::new(generated_sample, scores[0].clone()));
+            },
+
+            ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder.")
         }
 
     }
@@ -243,74 +266,55 @@ where
         }).count();
     }
 
-    fn step(&mut self) {
+    fn step_plain(&mut self) {
 
-
-    match &mut self.metaheuristic_base {
-
-        //TODO: think about how to eliminate code copies
-        MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
-        MetaheuristicsBasesVariants::GAB(gab) => {
-            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-            let mut found_acceptable = false;
-            while found_acceptable == false {
-                let samples: Vec<Array1<f64>> = gab.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-                let mut scores = self.score_requester.request_score(&samples);
-                match &self.score_precision {
-                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-                    None => ()
-                }
-                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
-                for i in 0..samples.len() {
-                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
-                }
-                (new_population, found_acceptable) = gab.build_updated_population(&self.population, &mut candidates);
+        let me_base = self.metaheuristic_base.as_trait();
+        let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
+        let mut found_acceptable = false;
+        while found_acceptable == false {
+            
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            let samples: Vec<Array1<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+            //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+            
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            let mut scores = self.score_requester.request_score_plain(&samples);
+            match &self.score_precision {
+                Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                None => ()
             }
-
-            self.population = new_population;
-        },
-        
-        MetaheuristicsBasesVariants::LAB(la) => {
-            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-            let mut found_acceptable = false;
-            while found_acceptable == false {
-                let samples: Vec<Array1<f64>> = la.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-                let mut scores = self.score_requester.request_score(&samples);
-                match &self.score_precision {
-                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-                    None => ()
-                }
-                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
-                for i in 0..samples.len() {
-                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
-                }
-                (new_population, found_acceptable) = la.build_updated_population(&self.population, &mut candidates);
+            let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
+            for i in 0..samples.len() {
+                candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
             }
+            //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
-            self.population = new_population;
-        },
-
-        MetaheuristicsBasesVariants::TSB(tsb) => {
-            let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-            let mut found_acceptable = false;
-            while found_acceptable == false {
-                let samples: Vec<Array1<f64>> = tsb.sample_candidates(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-                let mut scores = self.score_requester.request_score(&samples);
-                match &self.score_precision {
-                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-                    None => ()
-                }
-                let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
-                for i in 0..samples.len() {
-                    candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
-                }
-                (new_population, found_acceptable) = tsb.build_updated_population(&self.population, &mut candidates);
-            }
-
-            self.population = new_population;
+            (new_population, found_acceptable) = me_base.build_updated_population(&self.population, &mut candidates);
         }
+
+        self.population = new_population;
+
     }
 
+    fn step_incremental(&mut self) {
+
+        let me_base = self.metaheuristic_base.as_trait();
+        let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
+        let mut found_acceptable = false;
+        while found_acceptable == false {
+            
+            let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+
+            let mut scores = self.score_requester.request_score_incremental(&sample, &deltas, self.received_fresh_candidate);
+            match &self.score_precision {
+                Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                None => ()
+            }
+
+            (new_population, found_acceptable) = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
+        }
+
+        self.population = new_population;
     }
 
     fn send_updates(&mut self) -> Result<usize, usize> {
@@ -385,6 +389,7 @@ where
         (0..received_updates.migrants.len()).for_each(|i| {
             if received_updates.migrants[i] <= self.population[comparison_ids[i]] {
                 self.population[comparison_ids[i]] = received_updates.migrants[i].clone();
+                self.received_fresh_candidate = true;
             }
         });
 
@@ -395,6 +400,7 @@ where
     fn update_global_top(&mut self) {
         let mut global_top_individual = self.global_top_individual.lock().unwrap();
             let mut global_top_json = self.global_top_json.lock().unwrap();
+            //println!("{:?}", *global_top_individual);
             if self.agent_top_individual.score < global_top_individual.score {
                 *global_top_individual = self.agent_top_individual.clone();
                 *global_top_json = self.convert_to_json(self.agent_top_individual.clone());

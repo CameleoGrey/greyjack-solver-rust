@@ -152,7 +152,7 @@ impl GeneticAlgorithmBase {
 impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for GeneticAlgorithmBase
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
-    fn sample_candidates(
+    fn sample_candidates_plain(
             &mut self, 
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
@@ -187,6 +187,15 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         return candidates;
     }
 
+    fn sample_candidates_incremental(
+        &mut self,
+        population: &mut Vec<Individual<ScoreType>>, 
+        current_top_individual: &Individual<ScoreType>,
+        variables_manager: &VariablesManager
+    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+        panic!("Incremental candidates sampling is available only for local search approaches (TabuSearch, LateAcceptance, etc).")
+    }
+
     fn build_updated_population(
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
@@ -202,6 +211,17 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         return (winners, true);
+    }
+
+    fn build_updated_population_incremental(
+            &mut self, 
+            current_population: &Vec<Individual<ScoreType>>, 
+            sample: &mut Array1<f64>,
+            deltas: Vec<Vec<(usize, f64)>>,
+            scores: Vec<ScoreType>,
+        ) -> (Vec<Individual<ScoreType>>, bool) {
+        
+        panic!("Incremental candidates sampling is available only for local search approaches (TabuSearch, LateAcceptance, etc).")
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

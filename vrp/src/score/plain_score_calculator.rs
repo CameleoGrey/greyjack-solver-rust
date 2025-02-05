@@ -1,6 +1,6 @@
 
 
-use greyjack::score_calculation::score_calculators::OOPScoreCalculator;
+use greyjack::score_calculation::score_calculators::PlainScoreCalculator;
 use greyjack::score_calculation::scores::HardSoftScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::{collections::HashMap, ops::RangeTo};
@@ -8,15 +8,15 @@ use polars::prelude::*;
 use ndarray::{Array, Array2};
 
 
-pub struct ScoreCalculator {
+pub struct VRPPlainScoreCalculator {
 
 }
 
-impl ScoreCalculator {
+impl VRPPlainScoreCalculator {
 
-    pub fn new() -> OOPScoreCalculator<UtilityObjectVariants, HardSoftScore> {
+    pub fn new() -> PlainScoreCalculator<UtilityObjectVariants, HardSoftScore> {
 
-        let mut score_calculator: OOPScoreCalculator<UtilityObjectVariants, HardSoftScore> = OOPScoreCalculator::new();
+        let mut score_calculator: PlainScoreCalculator<UtilityObjectVariants, HardSoftScore> = PlainScoreCalculator::new();
 
         score_calculator.add_prescoring_function("build_common_df".to_string(), Box::new(Self::build_common_df));
 

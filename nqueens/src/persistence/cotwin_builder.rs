@@ -5,9 +5,10 @@ use greyjack::cotwin::CotwinBuilderTrait;
 use greyjack::cotwin::CotwinValueTypes;
 use greyjack::cotwin::CotwinEntityTrait;
 use greyjack::score_calculation::scores::SimpleScore;
+use greyjack::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
 use greyjack::variables::GJInteger;
 use crate::cotwin::CotQueen;
-use crate::score::ScoreCalculator;
+use crate::score::NQueensPlainScoreCalculator;
 use crate::domain::ChessBoard;
 use polars::datatypes::AnyValue;
 use std::collections::HashMap;
@@ -29,13 +30,15 @@ pub enum UtilityObjectVariants {}
 
 #[derive(Clone)]
 pub struct CotwinBuilder {
-
+    use_incremental_score_calculation: bool,
 }
 
 impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
  {
-    fn new() -> Self {
-        Self{}
+    fn new(use_incremental_score_calculation: bool) -> Self {
+        Self {
+            use_incremental_score_calculation: use_incremental_score_calculation,
+        }
     }
 
     fn build_cotwin(&self, domain_model: ChessBoard) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, SimpleScore> {
@@ -66,8 +69,8 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
         let mut nqueens_cotwin = Cotwin::new();
         nqueens_cotwin.add_planning_entities("queens".to_string(), cot_queens);
 
-        let score_calculator = ScoreCalculator::new();
-        nqueens_cotwin.add_score_calculator(score_calculator);
+        let score_calculator = NQueensPlainScoreCalculator::new();
+        nqueens_cotwin.add_score_calculator(ScoreCalculatorVariants::PSC(score_calculator));
 
         return nqueens_cotwin;
     }

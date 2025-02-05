@@ -2,8 +2,9 @@
 
 use crate::domain::TravelSchedule;
 use crate::cotwin::CotStop;
-use crate::score::ScoreCalculator;
+use crate::score::{TSPPlainScoreCalculator, TSPIncrementalScoreCalculator};
 use greyjack::cotwin::{Cotwin, CotwinEntityTrait, CotwinValueTypes, CotwinBuilderTrait};
+use greyjack::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
 use greyjack::score_calculation::scores::HardSoftScore;
 use greyjack::variables::GJInteger;
 use std::collections::HashMap;
@@ -24,11 +25,14 @@ impl<'a> CotwinEntityTrait for EntityVariants<'a> {
 
 pub enum UtilityObjectVariants {
     DistanceMatrix(Vec<Vec<f64>>),
+    DeltasMap(Vec<HashMap<usize, usize>>),
 }
 
 
 #[derive(Clone)]
 pub struct CotwinBuilder {
+
+    use_incremental_score_calculation: bool
     
 }
 
@@ -56,20 +60,28 @@ impl CotwinBuilder {
 
 impl<'a> CotwinBuilderTrait<TravelSchedule, EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> for CotwinBuilder {
 
-    fn new() -> Self {
-        Self{}
+    fn new(use_incremental_score_calculation: bool) -> Self {
+        Self {
+            use_incremental_score_calculation: use_incremental_score_calculation,
+        }
     }
 
     fn build_cotwin(&self, domain: TravelSchedule) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> {
         
-        let mut tsp_cotwin = Cotwin::new();
-        tsp_cotwin.add_planning_entities("path_stops".to_string(), Self::build_planning_stops(&domain));
+        let mut cotwin = Cotwin::new();
+        cotwin.add_planning_entities("path_stops".to_string(), Self::build_planning_stops(&domain));
 
-        let mut score_calculator = ScoreCalculator::new();
-        score_calculator.add_utility_object("distance_matrix".to_string(), UtilityObjectVariants::DistanceMatrix((domain.distance_matrix)));
-        tsp_cotwin.add_score_calculator(score_calculator);
+        if self.use_incremental_score_calculation {
+            let mut score_calculator = TSPIncrementalScoreCalculator::new();
+            score_calculator.add_utility_object("distance_matrix".to_string(), UtilityObjectVariants::DistanceMatrix((domain.distance_matrix)));
+            cotwin.add_score_calculator(ScoreCalculatorVariants::ISC(score_calculator));
+        } else {
+            let mut score_calculator = TSPPlainScoreCalculator::new();
+            score_calculator.add_utility_object("distance_matrix".to_string(), UtilityObjectVariants::DistanceMatrix((domain.distance_matrix)));
+            cotwin.add_score_calculator(ScoreCalculatorVariants::PSC(score_calculator));
+        }
 
-        return tsp_cotwin;
+        return cotwin;
     }
 
 }

@@ -2,8 +2,9 @@
 
 use crate::domain::VehicleRoutingPlan;
 use crate::cotwin::{CotStop, CotCustomer, CotVehicle};
-use crate::score::ScoreCalculator;
+use crate::score::VRPPlainScoreCalculator;
 use greyjack::cotwin::{Cotwin, CotwinEntityTrait, CotwinValueTypes, CotwinBuilderTrait};
+use greyjack::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
 use greyjack::score_calculation::scores::HardSoftScore;
 use greyjack::variables::GJInteger;
 use polars::frame::DataFrame;
@@ -35,7 +36,7 @@ pub enum UtilityObjectVariants {
 
 #[derive(Clone)]
 pub struct CotwinBuilder {
-    
+    use_incremental_score_calculation: bool,
 }
 
 impl CotwinBuilder {
@@ -99,8 +100,10 @@ impl CotwinBuilder {
 
 impl<'a> CotwinBuilderTrait<VehicleRoutingPlan, EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> for CotwinBuilder {
 
-    fn new() -> Self {
-        Self{}
+    fn new(use_incremental_score_calculation: bool) -> Self {
+        Self {
+            use_incremental_score_calculation: use_incremental_score_calculation
+        }
     }
 
     fn build_cotwin(&self, domain: VehicleRoutingPlan) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, HardSoftScore> {
@@ -110,13 +113,13 @@ impl<'a> CotwinBuilderTrait<VehicleRoutingPlan, EntityVariants<'a>, UtilityObjec
         cotwin.add_problem_facts("customers".to_string(), Self::build_problem_fact_customers(&domain));
         cotwin.add_planning_entities("planning_stops".to_string(), Self::build_planning_stops(&domain));
 
-        let mut score_calculator = ScoreCalculator::new();
+        let mut score_calculator = VRPPlainScoreCalculator::new();
         score_calculator.add_utility_object("distance_matrix".to_string(), UtilityObjectVariants::DistanceMatrix(domain.distance_matrix));
         if domain.time_windowed == false {
             score_calculator.remove_constraint("late_arrival_penalty".to_string());
         }
 
-        cotwin.add_score_calculator(score_calculator);
+        cotwin.add_score_calculator(ScoreCalculatorVariants::PSC(score_calculator));
 
         return cotwin;
     }

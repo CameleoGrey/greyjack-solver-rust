@@ -112,7 +112,7 @@ impl TabuSearchBase {
 impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for TabuSearchBase
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
-    fn sample_candidates(
+    fn sample_candidates_plain(
             &mut self, 
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
@@ -160,6 +160,50 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         return candidates;
     }
 
+    fn sample_candidates_incremental(
+        &mut self,
+        population: &mut Vec<Individual<ScoreType>>, 
+        current_top_individual: &Individual<ScoreType>,
+        variables_manager: &VariablesManager
+    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+
+        if self.mover.tabu_entity_size_map.len() == 0 {
+            let semantic_groups_map = variables_manager.semantic_groups_map.clone();
+            for (group_name, group_ids) in semantic_groups_map {
+                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::new());
+                self.mover.tabu_entity_size_map.insert(group_name.clone(), max((self.tabu_entity_rate * (group_ids.len().to_f64().unwrap())).ceil() as usize, 1));
+                self.mover.tabu_ids_vecdeque_map.insert(group_name.clone(), VecDeque::new());
+            }
+        }
+
+        if population.len() > 1 {
+            population.sort();
+        }
+
+        let current_best_candidate = population[0].variable_values.clone();
+        let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
+        while deltas.len() < self.neighbours_count {
+
+            let mut candidate = current_best_candidate.clone();
+            let changed_columns = self.mutate(&mut candidate, variables_manager);
+            variables_manager.fix_variables(&mut candidate, changed_columns.clone());
+
+            let mut current_deltas: Vec<(usize, f64)> = Vec::new();
+            match changed_columns {
+                None => continue,
+                Some(changed_column_ids) => changed_column_ids.iter().for_each(|changed_column_id| {
+                    current_deltas.push((*changed_column_id, candidate[*changed_column_id]));
+                })
+            }
+
+            deltas.push(current_deltas);
+        }
+
+        return (current_best_candidate.clone(), deltas);
+
+
+    }
+
     fn build_updated_population(
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
@@ -174,7 +218,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             new_population = vec![best_candidate; 1];
 
             if current_population.len() > 1 {
-            new_population.append(&mut current_population[1..(current_population.len()-1)].to_vec());
+            new_population.append(&mut current_population[0..(current_population.len()-1)].to_vec());
             }
             
             if new_population.len() > self.population_size {
@@ -185,6 +229,51 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         return (new_population, true);
+    }
+
+    fn build_updated_population_incremental(
+            &mut self, 
+            current_population: &Vec<Individual<ScoreType>>, 
+            sample: &mut Array1<f64>,
+            deltas: Vec<Vec<(usize, f64)>>,
+            scores: Vec<ScoreType>,
+        ) -> (Vec<Individual<ScoreType>>, bool) {
+        
+
+        let best_score_id: usize = scores
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| a.cmp(b))
+            .map(|(index, _)| index)
+            .unwrap();
+        let best_score = scores[best_score_id].clone();
+
+        //println!("{:?}", scores);
+
+        let mut new_population:Vec<Individual<ScoreType>>;
+        if best_score <= current_population[0].score {
+
+            let best_deltas = &deltas[best_score_id];
+            for (var_id, new_value) in best_deltas {
+                sample[*var_id] = *new_value;
+            }
+            let best_candidate = Individual::new(sample.clone(), best_score);
+            new_population = vec![best_candidate; 1];
+
+            if current_population.len() > 1 {
+            new_population.append(&mut current_population[0..(current_population.len()-1)].to_vec());
+            }
+            
+            if new_population.len() > self.population_size {
+                new_population = new_population[..self.population_size].to_vec();
+            }
+        } else {
+            new_population = current_population.clone();
+        }
+
+        return (new_population, true);
+
+
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

@@ -1,6 +1,6 @@
 
 
-use greyjack::score_calculation::score_calculators::OOPScoreCalculator;
+use greyjack::score_calculation::score_calculators::PlainScoreCalculator;
 use greyjack::score_calculation::scores::HardSoftScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::collections::HashMap;
@@ -8,20 +8,20 @@ use polars::prelude::*;
 use ndarray::{Array, Array2};
 
 
-pub struct ScoreCalculator {
+pub struct TSPPlainScoreCalculator {
 
 }
 
-impl ScoreCalculator {
+impl TSPPlainScoreCalculator {
 
-    pub fn new() -> OOPScoreCalculator<UtilityObjectVariants, HardSoftScore> {
+    pub fn new() -> PlainScoreCalculator<UtilityObjectVariants, HardSoftScore> {
 
-        let mut tsp_score_calculator: OOPScoreCalculator<UtilityObjectVariants, HardSoftScore> = OOPScoreCalculator::new();
+        let mut score_calculator: PlainScoreCalculator<UtilityObjectVariants, HardSoftScore> = PlainScoreCalculator::new();
 
-        tsp_score_calculator.add_constraint("no_duplicating_stops_constraint".to_string(), Box::new(Self::no_duplicating_stops_constraint));
-        tsp_score_calculator.add_constraint("minimize_distance".to_string(), Box::new(Self::minimize_distance));
+        score_calculator.add_constraint("no_duplicating_stops_constraint".to_string(), Box::new(Self::no_duplicating_stops_constraint));
+        score_calculator.add_constraint("minimize_distance".to_string(), Box::new(Self::minimize_distance));
 
-        return tsp_score_calculator;
+        return score_calculator;
     }
 
     fn no_duplicating_stops_constraint(
@@ -65,6 +65,7 @@ impl ScoreCalculator {
         let distance_matrix: &Vec<Vec<f64>>;
         match &utility_objects["distance_matrix"] {
             UtilityObjectVariants::DistanceMatrix(dm) => distance_matrix = &dm,
+            _ => panic!("dragons")
         }
 
         let scores: Vec<HardSoftScore> = 

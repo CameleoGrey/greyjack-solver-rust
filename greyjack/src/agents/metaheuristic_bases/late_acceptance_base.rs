@@ -104,7 +104,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord 
 impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for LateAcceptanceBase<ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
-    fn sample_candidates(
+    fn sample_candidates_plain(
             &mut self, 
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
@@ -122,6 +122,15 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 
         return candidate;
 
+    }
+
+    fn sample_candidates_incremental(
+        &mut self,
+        population: &mut Vec<Individual<ScoreType>>, 
+        current_top_individual: &Individual<ScoreType>,
+        variables_manager: &VariablesManager
+    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+        panic!("sample_candidates_incremental() not implemented for LateAcceptance at this moment");
     }
 
     fn build_updated_population(
@@ -172,6 +181,17 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         return (new_population, found_acceptable);
+    }
+
+    fn build_updated_population_incremental(
+            &mut self, 
+            current_population: &Vec<Individual<ScoreType>>, 
+            sample: &mut Array1<f64>,
+            deltas: Vec<Vec<(usize, f64)>>,
+            scores: Vec<ScoreType>,
+        ) -> (Vec<Individual<ScoreType>>, bool) {
+        
+        panic!("Not implemented.")
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

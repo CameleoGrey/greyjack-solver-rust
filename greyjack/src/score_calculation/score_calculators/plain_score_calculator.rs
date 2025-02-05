@@ -5,7 +5,7 @@ use crate::score_calculation::scores::ScoreTrait;
 use std::ops::AddAssign;
 
 
-pub struct OOPScoreCalculator<UtilityObjectVariants, ScoreType>
+pub struct PlainScoreCalculator<UtilityObjectVariants, ScoreType>
 where 
     ScoreType: ScoreTrait + Clone + AddAssign {
     constraints: HashMap<String, Box<dyn (Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>, &mut HashMap<String, UtilityObjectVariants>,) -> Vec<ScoreType>) + Send>>,
@@ -14,7 +14,7 @@ where
     prescoring_functions: HashMap<String, Box<dyn Fn(&HashMap<String, DataFrame>, &HashMap<String, DataFrame>, &mut HashMap<String, UtilityObjectVariants>,)>>,
 }
 
-impl<UtilityObjectVariants, ScoreType> OOPScoreCalculator<UtilityObjectVariants, ScoreType>
+impl<UtilityObjectVariants, ScoreType> PlainScoreCalculator<UtilityObjectVariants, ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign {
 
     pub fn new() -> Self {
@@ -95,5 +95,5 @@ where ScoreType: ScoreTrait + Clone + AddAssign {
 
 }
 
-unsafe impl<UtilityObjectVariants, ScoreType> Send for OOPScoreCalculator<UtilityObjectVariants, ScoreType>
+unsafe impl<UtilityObjectVariants, ScoreType> Send for PlainScoreCalculator<UtilityObjectVariants, ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + Send {}

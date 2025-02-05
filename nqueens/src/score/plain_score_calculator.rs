@@ -1,18 +1,18 @@
 
 
-use greyjack::score_calculation::score_calculators::OOPScoreCalculator;
+use greyjack::score_calculation::score_calculators::PlainScoreCalculator;
 use greyjack::score_calculation::scores::SimpleScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::collections::HashMap;
 use polars::prelude::*;
 
-pub struct ScoreCalculator {
+pub struct NQueensPlainScoreCalculator {
 
 }
 
-impl ScoreCalculator {
-    pub fn new() -> OOPScoreCalculator<UtilityObjectVariants, SimpleScore> {
-        let mut score_calculator= OOPScoreCalculator::new();
+impl NQueensPlainScoreCalculator {
+    pub fn new() -> PlainScoreCalculator<UtilityObjectVariants, SimpleScore> {
+        let mut score_calculator= PlainScoreCalculator::new();
 
         // more explainable
         //score_calculator.add_constraint("different_rows".to_string(), Box::new(Self::different_rows));
