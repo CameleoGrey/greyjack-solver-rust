@@ -130,7 +130,22 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         current_top_individual: &Individual<ScoreType>,
         variables_manager: &VariablesManager
     ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
-        panic!("sample_candidates_incremental() not implemented for LateAcceptance at this moment");
+
+        let mut candidate = population[0].variable_values.clone();
+        let changed_columns = self.mutate(&mut candidate, variables_manager);
+        variables_manager.fix_variables(&mut candidate, changed_columns.clone());
+
+        let mut current_deltas: Vec<(usize, f64)> = Vec::new();
+        match changed_columns {
+            Some(changed_column_ids) => changed_column_ids.iter().for_each(|changed_column_id| {
+                current_deltas.push((*changed_column_id, candidate[*changed_column_id]));
+            }),
+            None => panic!("dragons"),
+        }
+
+        let deltas = vec![current_deltas; 1];
+
+        return (candidate, deltas);
     }
 
     fn build_updated_population(
@@ -160,7 +175,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             let best_candidate = candidates[0].clone();
             new_population = vec![best_candidate; 1];
             if current_population.len() > 1 {
-                current_population[1..current_population.len()].iter().for_each(|individual| new_population.push(individual.clone()));
+                current_population[0..(current_population.len()-1)].iter().for_each(|individual| new_population.push(individual.clone()));
             }
 
             // vec variant with sorting
@@ -190,8 +205,56 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
         ) -> (Vec<Individual<ScoreType>>, bool) {
-        
-        panic!("Not implemented.")
+
+        let candidate_to_compare_score;
+        if self.late_scores.len() == 0 {
+            candidate_to_compare_score = current_population[current_population.len() - 1].score.clone();
+        } else {
+            // vec variant with sorting
+            //self.late_scores.sort();
+            //self.late_scores.reverse();
+            //candidate_to_compare_score = self.late_scores[0].clone();
+
+            //VecDeque variant
+            candidate_to_compare_score = self.late_scores.back().unwrap().clone();
+        }
+
+        let candidate_score = scores[0].clone();
+
+        //println!("{:?}", scores);
+        let mut found_acceptable = false;
+        let mut new_population:Vec<Individual<ScoreType>>;
+        if (candidate_score <= candidate_to_compare_score) || (candidate_score <= current_population[0].score) {
+            found_acceptable = true;
+
+            let best_deltas = &deltas[0];
+            for (var_id, new_value) in best_deltas {
+                sample[*var_id] = *new_value;
+            }
+            let best_candidate = Individual::new(sample.clone(), candidate_score.clone());
+            new_population = vec![best_candidate; 1];
+            if current_population.len() > 1 {
+                current_population[0..(current_population.len()-1)].iter().for_each(|individual| new_population.push(individual.clone()));
+            }
+
+            // vec variant with sorting
+            //self.late_scores.push(candidate_score);
+
+            //VecDeque variant
+            self.late_scores.push_front(candidate_score);
+            if self.late_scores.len() > self.late_acceptance_size {
+
+                // vec variant with sorting
+                //self.late_scores = self.late_scores[1..].to_vec();
+
+                // VecDeque variant
+                self.late_scores.pop_back();
+            }
+        } else {
+            new_population = current_population.clone();
+        }
+
+        return (new_population, found_acceptable);
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

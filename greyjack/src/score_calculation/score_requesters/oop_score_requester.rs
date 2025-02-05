@@ -445,7 +445,7 @@ where
             return delta_dfs;
         }
 
-        pub fn request_score_incremental<'a>(&mut self, sample: &Array1<f64>, deltas: &Vec<Vec<(usize, f64)>>, is_fresh_sample: bool) -> Vec<ScoreType> {
+        pub fn request_score_incremental<'a>(&mut self, sample: &Array1<f64>, deltas: &Vec<Vec<(usize, f64)>>) -> Vec<ScoreType> {
 
             let candidate: Vec<(AnyValue<'a>)> = self.variables_manager.inverse_transform_variables(&sample);
             let group_data_map = self.build_group_data_map(&vec![candidate; 1], false);

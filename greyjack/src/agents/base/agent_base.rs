@@ -204,7 +204,7 @@ where
                 let generated_sample = self.score_requester.variables_manager.sample_variables();
                 let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
                 deltas.push(generated_sample.iter().enumerate().map(|i_val| (i_val.0, i_val.1.clone())).collect());
-                let scores = self.score_requester.request_score_incremental(&generated_sample, &deltas, true);
+                let scores = self.score_requester.request_score_incremental(&generated_sample, &deltas);
                 self.population.push(Individual::new(generated_sample, scores[0].clone()));
             },
 
@@ -301,15 +301,20 @@ where
         let me_base = self.metaheuristic_base.as_trait();
         let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
         let mut found_acceptable = false;
+        let mut fresh_candidate = false;
         while found_acceptable == false {
             
+            //let start_time = chrono::Utc::now().timestamp_millis();
             let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+            //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
-            let mut scores = self.score_requester.request_score_incremental(&sample, &deltas, self.received_fresh_candidate);
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            let mut scores = self.score_requester.request_score_incremental(&sample, &deltas);
             match &self.score_precision {
                 Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
                 None => ()
             }
+            //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             (new_population, found_acceptable) = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
         }
@@ -389,7 +394,6 @@ where
         (0..received_updates.migrants.len()).for_each(|i| {
             if received_updates.migrants[i] <= self.population[comparison_ids[i]] {
                 self.population[comparison_ids[i]] = received_updates.migrants[i].clone();
-                self.received_fresh_candidate = true;
             }
         });
 
