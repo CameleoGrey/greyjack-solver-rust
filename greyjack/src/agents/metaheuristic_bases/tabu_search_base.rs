@@ -19,7 +19,7 @@ use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 
 use super::moves::BaseMoves;
-use super::moves::MoveTrait;
+use super::moves::MoveTraitIncremental;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
 use std::collections::HashSet;
@@ -91,20 +91,22 @@ impl TabuSearchBase {
         }
     }
 
-    fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager) -> Option<Vec<usize>> {
+    fn mutate(&mut self, candidate: &Array1<f64>, variables_manager: &VariablesManager, incremental: bool) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
+        let changed_candidate: Option<Array1<f64>>;
         let changed_columns: Option<Vec<usize>>;
+        let deltas: Option<Vec<f64>>;
         match rand_method_id {
-            0 => changed_columns = self.change_move(candidate, variables_manager),
-            1 => changed_columns = self.swap_move(candidate, variables_manager),
-            2 => changed_columns = self.swap_edges_move(candidate, variables_manager),
-            3 => changed_columns = self.insertion_move(candidate, variables_manager),
-            4 => changed_columns = self.scramble_move(candidate, variables_manager),
+            0 => (changed_candidate, changed_columns, deltas) = self.change_move(candidate, variables_manager, incremental),
+            1 => (changed_candidate, changed_columns, deltas) = self.swap_move(candidate, variables_manager, incremental),
+            2 => (changed_candidate, changed_columns, deltas) = self.swap_edges_move(candidate, variables_manager, incremental),
+            3 => (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental),
+            4 => (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental),
             _ => panic!("Invalid rand_method_id, no move with such id"),
         }
 
-        return changed_columns;
+        return (changed_candidate, changed_columns, deltas);
     }
 
 }
@@ -136,8 +138,8 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         let mut candidates: Vec<Array1<f64>> = Vec::new();
         while candidates.len() < self.neighbours_count {
 
-            let mut candidate = current_best_candidate.clone();
-            let changed_columns = self.mutate(&mut candidate, variables_manager);
+            let (changed_candidate, changed_columns, deltas) = self.mutate(&current_best_candidate, variables_manager, false);
+            let mut candidate = changed_candidate.unwrap();
             variables_manager.fix_variables(&mut candidate, changed_columns);
 
             if self.tabu_size > 0 {
@@ -184,19 +186,14 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
         while deltas.len() < self.neighbours_count {
 
-            let mut candidate = current_best_candidate.clone();
-            let changed_columns = self.mutate(&mut candidate, variables_manager);
-            variables_manager.fix_variables(&mut candidate, changed_columns.clone());
+            let (changed_candidate, changed_columns, candidate__deltas) = self.mutate(&current_best_candidate, variables_manager, true);
+            let mut candidate__deltas = candidate__deltas.unwrap();
+            variables_manager.fix_deltas(&mut candidate__deltas, changed_columns.clone());
 
-            let mut current_deltas: Vec<(usize, f64)> = Vec::new();
-            match changed_columns {
-                None => continue,
-                Some(changed_column_ids) => changed_column_ids.iter().for_each(|changed_column_id| {
-                    current_deltas.push((*changed_column_id, candidate[*changed_column_id]));
-                })
-            }
+            let changed_columns = changed_columns.unwrap();
+            let candidate__deltas: Vec<(usize, f64)> = changed_columns.iter().zip(candidate__deltas.iter()).map(|(col_id, delta_value)| (*col_id, *delta_value)).collect();
 
-            deltas.push(current_deltas);
+            deltas.push(candidate__deltas);
         }
 
         return (current_best_candidate.clone(), deltas);
@@ -285,7 +282,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-impl MoveTrait for TabuSearchBase {
+impl MoveTraitIncremental for TabuSearchBase {
 
     fn get_necessary_info_for_move<'d>(
             &self, 
@@ -303,60 +300,65 @@ impl MoveTrait for TabuSearchBase {
 
     fn change_move(
             &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager
-        ) -> Option<Vec<usize>> {
+            candidate: &Array1<f64>, 
+            variables_manager: &VariablesManager,
+            incremental: bool,
+        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
             let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
 
-            self.mover.change_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name)   
+            self.mover.change_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)   
     }
 
     fn swap_move(
             &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager
-        ) -> Option<Vec<usize>> {
+            candidate: &Array1<f64>, 
+            variables_manager: &VariablesManager,
+            incremental: bool,
+        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
             let (group_ids, group_name,current_change_count) = self.get_necessary_info_for_move(variables_manager);
         
-            self.mover.swap_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name)
+            self.mover.swap_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
     }
     
     fn swap_edges_move(
             &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager
-        ) -> Option<Vec<usize>> {
+            candidate: &Array1<f64>, 
+            variables_manager: &VariablesManager,
+            incremental: bool,
+        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
             let (group_ids, group_name,current_change_count) = self.get_necessary_info_for_move(variables_manager);
             
-            self.mover.swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name)
+            self.mover.swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
     }
 
     fn insertion_move(
             &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager
-        ) -> Option<Vec<usize>> {
+            candidate: &Array1<f64>, 
+            variables_manager: &VariablesManager,
+            incremental: bool,
+        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
             let current_change_count = 2;
 
-            self.mover.insertion_move_base(candidate, variables_manager, current_change_count, group_ids, group_name)
+            self.mover.insertion_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
         
     }
 
     fn scramble_move(
             &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager
-        ) -> Option<Vec<usize>> {
+            candidate: &Array1<f64>, 
+            variables_manager: &VariablesManager,
+            incremental: bool,
+        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
         
             let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
 
-            self.mover.scramble_move_base(candidate, variables_manager, current_change_count, group_ids, group_name)
+            self.mover.scramble_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
     }
 }
 

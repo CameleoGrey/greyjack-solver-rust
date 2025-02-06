@@ -399,12 +399,12 @@ where
             }
 
             let mut delta_data_map: HashMap<String, HashMap<String, Vec<AnyValue<'_>>>> = HashMap::new();
-            for sample_id in 0..inverted_deltas.len() {
+            (0..inverted_deltas.len()).into_iter().for_each(|sample_id| {
 
                 let current_sample_deltas = inverted_deltas[sample_id].clone();
-                for (var_id, new_value) in current_sample_deltas {
+                current_sample_deltas.iter().for_each(|(var_id, new_value)| {
 
-                    let (df_name, var_col_name, row_id) = self.var_id_to_df_column_index_map[var_id].clone();
+                    let (df_name, var_col_name, row_id) = self.var_id_to_df_column_index_map[*var_id].clone();
                     if delta_data_map.contains_key(&df_name) == false {
                         delta_data_map.insert(df_name.clone(), HashMap::new());
                         delta_data_map.get_mut(&df_name).unwrap().insert("sample_id".to_string(), Vec::new());
@@ -415,7 +415,7 @@ where
                     delta_data_map.get_mut(&df_name).unwrap().get_mut("row_id").unwrap().push(AnyValue::UInt64(row_id as u64));
 
                     let current_df_column_data = group_data_map.get(&df_name).unwrap();
-                    for (column_name, column_values) in current_df_column_data {
+                    current_df_column_data.iter().for_each(|(column_name, column_values)| {
                         if delta_data_map.get(&df_name).unwrap().contains_key(column_name) == false {
                             delta_data_map.get_mut(&df_name).unwrap().insert(column_name.clone(), Vec::new());
                         }
@@ -425,37 +425,46 @@ where
                         } else {
                             delta_data_map.get_mut(&df_name).unwrap().get_mut(column_name).unwrap().push(column_values[row_id].clone());
                         }
-                    }
-                }
-            }
+                    });
+                });
+            });
 
             let mut delta_dfs: HashMap<String, DataFrame> = HashMap::new();
-            for df_name in delta_data_map.keys() {
+            delta_data_map.keys().into_iter().for_each(|df_name| {
+
                 let mut current_df = DataFrame::empty();
-                for column_name in delta_data_map[df_name].keys() {
+                delta_data_map[df_name].keys().into_iter().for_each(|column_name| {
+
                     let updated_column_data = &delta_data_map[df_name][column_name];
                     let updated_column = Series::new(column_name.into(), updated_column_data);
                     current_df.with_column(updated_column).unwrap();
-                }
+                });
                 current_df = current_df.sort(["sample_id", "row_id"], SortMultipleOptions::default()).unwrap();
 
                 delta_dfs.insert(df_name.clone(), current_df);
-            }
+            });
 
             return delta_dfs;
         }
 
         pub fn request_score_incremental<'a>(&mut self, sample: &Array1<f64>, deltas: &Vec<Vec<(usize, f64)>>) -> Vec<ScoreType> {
 
+            //let start_time = chrono::Utc::now().timestamp_millis();
             let candidate: Vec<(AnyValue<'a>)> = self.variables_manager.inverse_transform_variables(&sample);
             let group_data_map = self.build_group_data_map(&vec![candidate; 1], false);
             self.update_dfs_for_scoring(&group_data_map, 1, true);
+            //println!("candidate df building time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
+            //let start_time = chrono::Utc::now().timestamp_millis();
+            let start_time = chrono::Utc::now().timestamp_millis();
             let inverted_deltas: Vec<Vec<(usize, AnyValue<'a>)>> = self.variables_manager.inverse_transform_deltas(&deltas);
             let delta_dfs = self.build_delta_dfs(&group_data_map, inverted_deltas);
+            //println!("deltas df building time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
+            //let start_time = chrono::Utc::now().timestamp_millis();
             let score_batch = &self.cotwin.get_score(&self.planning_entity_dfs, &self.problem_fact_dfs, Some(&delta_dfs));
             let score_batch = score_batch.to_owned();
+            //println!("scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             return score_batch;
         }

@@ -2008,6 +2008,7 @@ dependencies = [
  "greyjack",
  "ndarray",
  "polars",
+ "rayon",
  "regex",
  "serde_json",
 ]

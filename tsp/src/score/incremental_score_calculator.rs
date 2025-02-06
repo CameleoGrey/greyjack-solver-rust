@@ -26,17 +26,13 @@ impl TSPIncrementalScoreCalculator {
         return score_calculator;
     }
 
-    fn build_deltas_map(
+    /*fn build_deltas_map(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
         delta_dfs: &HashMap<String, DataFrame>,
         utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) {
-
-        let path_stops_df = planning_entity_dfs["path_stops"].clone();
         let path_stops_deltas_df = delta_dfs["path_stops"].clone();
-
-        let locations_vec_len = path_stops_df["location_vec_id"].len();
 
         let mut sample_ids: Vec<usize> = 
         path_stops_deltas_df["sample_id"]
@@ -56,69 +52,67 @@ impl TSPIncrementalScoreCalculator {
         .iter().map(|loc_id| loc_id.unwrap() as usize)
         .collect();
 
-        let mut deltas_map: Vec<HashMap<usize, usize>> = Vec::new();
-        deltas_map = vec![HashMap::new(); locations_vec_len];
+        let mut srl_deltas_map: Vec<HashMap<usize, usize>> = Vec::new();
+        srl_deltas_map = vec![HashMap::new(); sample_ids.len()];
         sample_ids.iter()
         .zip(row_ids.iter())
         .zip(location_ids.iter())
         .for_each(|((sample_id, row_id), loc_id)| {
-            deltas_map[*row_id].insert(*sample_id, *loc_id);
+            srl_deltas_map[*sample_id].insert(*row_id, *loc_id);
         });
-
-        utility_objects.insert("deltas_map".to_string(), UtilityObjectVariants::DeltasMap(deltas_map));
+        utility_objects.insert("srl_deltas_map".to_string(), UtilityObjectVariants::DeltasMap(srl_deltas_map));
     }
 
-    /*fn no_duplicating_stops_constraint(
+    fn no_duplicating_stops_constraint(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
         delta_dfs: &HashMap<String, DataFrame>,
         utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) -> Vec<HardSoftScore> {
 
+        /*
+        Works, but slower than "non clean" version on big deltas.
+        */
+
         let path_stops_df = planning_entity_dfs["path_stops"].clone();
-        let path_stops_deltas_df = delta_dfs["path_stops"].clone();
-        let deltas_map;
-        match &utility_objects["deltas_map"] {
-            UtilityObjectVariants::DeltasMap(dm) => deltas_map = dm,
+        let srl_deltas_map;
+        match &utility_objects["srl_deltas_map"] {
+            UtilityObjectVariants::DeltasMap(dm) => srl_deltas_map = dm,
             _ => panic!("dragons")
         }
-
-        let mut sample_ids: Vec<usize> = 
-        path_stops_deltas_df["sample_id"]
-        .unique_stable().unwrap()
-        .u64().unwrap().to_vec()
-        .iter().map(|sample_id| sample_id.unwrap() as usize)
-        .collect();
-
-        let mut samples_uniques_loc_ids: Vec<HashSet<usize>> = Vec::new();
-        samples_uniques_loc_ids = vec![HashSet::new(); sample_ids.len()];
-
 
         let location_ids: Vec<usize> = 
         path_stops_df["location_vec_id"]
         .i64().unwrap().to_vec()
         .iter().map(|loc_id| loc_id.unwrap() as usize)
         .collect();
+        let unique_native_loc_ids: HashSet<usize> = location_ids.iter().map(|x| *x).collect();
 
-        let stub_collection: () = 
-        location_ids.iter()
-        .zip(deltas_map.iter())
-        .enumerate()
-        .map(|(i, (native_loc_id, sample_deltas))| {
-            let stub_collection: () = sample_ids.iter().map(|sample_id| {
-                if sample_deltas.contains_key(sample_id) {
-                    samples_uniques_loc_ids[*sample_id].insert(sample_deltas.get(sample_id).unwrap().clone());
-                } else {
-                    samples_uniques_loc_ids[*sample_id].insert(*native_loc_id);
-                }
-            }).collect();
-        }).collect();
+        let path_stops_deltas_df = delta_dfs["path_stops"].clone();
+        let n_samples = path_stops_deltas_df["sample_id"].n_unique().unwrap();
+        let mut samples_uniques_loc_ids = vec![unique_native_loc_ids; n_samples];
+
+        srl_deltas_map.iter().enumerate().for_each(|(sample_id, sample_deltas)| {
+
+            let mut previous_loc_ids: HashSet<usize> = HashSet::new();
+            let mut new_loc_ids: HashSet<usize> = HashSet::new();
+            sample_deltas.iter().for_each(|(row_id, new_loc_id)| {
+                previous_loc_ids.insert(location_ids[*row_id]);
+                new_loc_ids.insert(*new_loc_id);
+            });
+
+            previous_loc_ids.iter().for_each(|prev_loc_id| {samples_uniques_loc_ids[sample_id].remove(prev_loc_id);});
+            new_loc_ids.iter().for_each(|new_loc_id| {samples_uniques_loc_ids[sample_id].insert(*new_loc_id);});
+
+            
+        });
 
         let locations_vec_len = location_ids.len();
-        let scores: Vec<HardSoftScore> = 
-        samples_uniques_loc_ids.iter().map(|sample_uniques| {
+        let scores: Vec<HardSoftScore> = samples_uniques_loc_ids.iter().map(|sample_uniques| {
             HardSoftScore::new((locations_vec_len - sample_uniques.len()) as f64, 0.0)
         }).collect();
+
+        //println!("{:?}", scores);
 
         return scores;
 
@@ -145,14 +139,10 @@ impl TSPIncrementalScoreCalculator {
         .i64().unwrap().to_vec()
         .iter().map(|loc_id| loc_id.unwrap() as usize)
         .collect();
-
-        let n_samples = path_stops_deltas_df["sample_id"].n_unique().unwrap();
-        let unique_location_ids: HashSet<usize> = location_ids.iter().map(|loc_id| *loc_id).collect();
-        let mut scores: Vec<HardSoftScore> = vec![HardSoftScore::new((locations_vec_len - unique_location_ids.len()) as f64, 0.0); n_samples];
         
-        path_stops_deltas_df
+        let mut scores: Vec<HardSoftScore> = path_stops_deltas_df
         .partition_by(["sample_id"], false).unwrap()
-        .iter().enumerate().for_each(|(i, sample_df)| {
+        .iter().enumerate().map(|(i, sample_df)| {
             let mut sample_location_ids: Vec<usize> = 
             sample_df["location_vec_id"]
             .i64().unwrap().to_vec()
@@ -171,8 +161,9 @@ impl TSPIncrementalScoreCalculator {
             });
 
             let sample_unique_location_ids: HashSet<usize> = changed_location_ids.iter().map(|loc_id| *loc_id).collect();
-            scores[i].hard_score = (locations_vec_len - sample_unique_location_ids.len()) as f64;
-        });
+
+            HardSoftScore::new((locations_vec_len - sample_unique_location_ids.len()) as f64, 0.0)
+        }).collect();
 
         return scores;
 
@@ -185,6 +176,10 @@ impl TSPIncrementalScoreCalculator {
         utility_objects: &mut HashMap<String, UtilityObjectVariants>,
     ) -> Vec<HardSoftScore> {
 
+        /*
+        Broken, cam't understand, what is wrong.
+        */
+
         let path_stops_df = planning_entity_dfs["path_stops"].clone();
         let path_stops_deltas_df = delta_dfs["path_stops"].clone();
         let distance_matrix: &Vec<Vec<f64>>;
@@ -192,53 +187,49 @@ impl TSPIncrementalScoreCalculator {
             UtilityObjectVariants::DistanceMatrix(dm) => distance_matrix = &dm,
             _ => panic!("dragons")
         }
-        let deltas_map;
-        match &utility_objects["deltas_map"] {
-            UtilityObjectVariants::DeltasMap(dm) => deltas_map = dm,
+        let srl_deltas_map;
+        match &utility_objects["srl_deltas_map"] {
+            UtilityObjectVariants::DeltasMap(dm) => srl_deltas_map = dm,
             _ => panic!("dragons")
         }
 
         let planning_stop_ids: Vec<usize> = path_stops_df["location_vec_id"].i64().unwrap().to_vec().iter().map(|x| x.unwrap() as usize).collect();
         let last_row_id = planning_stop_ids.len() - 1;
+
+        let mut sample_distance = 0.0;
+        let last_id = planning_stop_ids.len() - 1; 
+        sample_distance += distance_matrix[0][planning_stop_ids[0]];
+        sample_distance += distance_matrix[planning_stop_ids[last_id]][0];
+        sample_distance += (1..planning_stop_ids.len()).into_iter().fold(0.0, |interim_distance, i| interim_distance + distance_matrix[planning_stop_ids[i-1]][planning_stop_ids[i]]);
         let n_samples = path_stops_deltas_df["sample_id"].n_unique().unwrap();
-        let mut sample_distances: Vec<f64> = vec![0.0; n_samples];
+        let mut sample_distances: Vec<f64> = vec![sample_distance; n_samples];
 
         for i in 0..n_samples {
-            if deltas_map[0].contains_key(&i) {
-                sample_distances[i] += distance_matrix[0][*deltas_map[0].get(&i).unwrap()];
-            } else {
-                sample_distances[i] += distance_matrix[0][planning_stop_ids[0]];
+            if srl_deltas_map[i].contains_key(&0) {
+                sample_distances[i] -= distance_matrix[0][planning_stop_ids[0]];
+                sample_distances[i] += distance_matrix[0][*srl_deltas_map[i].get(&0).unwrap()];
             }
 
-            if deltas_map[last_row_id].contains_key(&i) {
-                sample_distances[i] += distance_matrix[*deltas_map[last_row_id].get(&i).unwrap()][0];
-            } else {
-                sample_distances[i] += distance_matrix[planning_stop_ids[last_row_id]][0];
-            }
-        }
-
-        for i in 1..planning_stop_ids.len() {
-
-            let mut excluded_sample_ids: HashSet<usize> = HashSet::new();
-
-            for sample_id in deltas_map[i].keys() {
-                excluded_sample_ids.insert(*sample_id);
-
-                let current_loc_id = deltas_map[i].get(sample_id).unwrap();
-                let previous_loc_id = if deltas_map[i-1].contains_key(sample_id) {*deltas_map[i-1].get(sample_id).unwrap()} else {planning_stop_ids[i-1]};
-
-                sample_distances[*sample_id] += distance_matrix[previous_loc_id][*current_loc_id];
+            if srl_deltas_map[i].contains_key(&last_row_id) {
+                sample_distances[i] -= distance_matrix[planning_stop_ids[last_row_id]][0];
+                sample_distances[i] += distance_matrix[*srl_deltas_map[i].get(&last_row_id).unwrap()][0];
             }
 
-            for sample_id in 0..n_samples {
-                if excluded_sample_ids.contains(&sample_id) {
+            for (row_id, new_loc_id) in &srl_deltas_map[i] {
+                if *row_id == 0 {
                     continue;
                 }
+                
+                let previous_loc_id;
+                if srl_deltas_map[i].contains_key(&(*row_id-1)) {
+                    previous_loc_id = *srl_deltas_map[i].get(&(*row_id-1)).unwrap();
+                } else {
+                    previous_loc_id = planning_stop_ids[*row_id-1];
+                }
 
-                let current_loc_id = planning_stop_ids[i];
-                let previous_loc_id = if deltas_map[i-1].contains_key(&sample_id) {*deltas_map[i-1].get(&sample_id).unwrap()} else {planning_stop_ids[i-1]};
+                sample_distances[i] -= distance_matrix[previous_loc_id][planning_stop_ids[*row_id]];
+                sample_distances[i] += distance_matrix[previous_loc_id][*new_loc_id];
 
-                sample_distances[sample_id] += distance_matrix[previous_loc_id][current_loc_id];
             }
         }
 
@@ -268,15 +259,10 @@ impl TSPIncrementalScoreCalculator {
         }
 
         let planning_stop_ids: Vec<usize> = path_stops_df["location_vec_id"].i64().unwrap().to_vec().iter().map(|x| x.unwrap() as usize).collect();
-        let candidate_distance = HardSoftScore::new(0.0, 0.0);
-        let n_samples = path_stops_deltas_df["sample_id"].n_unique().unwrap();
-        let mut scores = vec![candidate_distance; n_samples];
 
-        //println!("{:?}", scores.len());
-
-        path_stops_deltas_df
+        let mut scores: Vec<HardSoftScore> = path_stops_deltas_df
         .partition_by(["sample_id"], false).unwrap()
-        .iter().enumerate().for_each(|(i, sample_df)| {
+        .iter().enumerate().map(|(i, sample_df)| {
             let current_loc_ids: Vec<usize> = sample_df["location_vec_id"]
             .i64().unwrap().to_vec()
             .iter().map(|loc_id| loc_id.unwrap() as usize)
@@ -300,8 +286,8 @@ impl TSPIncrementalScoreCalculator {
             sample_distance += distance_matrix[changed_stops[last_id]][0];
             sample_distance += (1..changed_stops.len()).into_iter().fold(0.0, |interim_distance, i| interim_distance + distance_matrix[changed_stops[i-1]][changed_stops[i]]);
 
-            scores[i].soft_score = sample_distance;
-        });
+            HardSoftScore::new(0.0, sample_distance)
+        }).collect();
 
         return scores;
     }

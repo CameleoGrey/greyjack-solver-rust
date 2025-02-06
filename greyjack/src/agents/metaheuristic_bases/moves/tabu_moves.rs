@@ -62,18 +62,19 @@ impl TabuMoves {
     #[inline]
     pub fn change_move_base(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager,
         mut current_change_count: usize, 
         group_ids: &Vec<usize>,
         group_name: &String,
-    ) -> Option<Vec<usize>> {
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
         
         if current_change_count < 1 {
             current_change_count = 1;
         }
         if group_ids.len() < current_change_count {
-            return None;
+            return (None, None, None);
         }
 
         let changed_columns: Vec<usize>;
@@ -82,26 +83,33 @@ impl TabuMoves {
         } else {
             changed_columns = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len());
         }
-        changed_columns.iter().for_each(|i| candidate[*i] = variables_manager.get_column_random_value(*i));
 
-        return Some(changed_columns);
+        if incremental {
+            let deltas: Vec<f64> = changed_columns.iter().map(|i| variables_manager.get_column_random_value(*i)).collect();
+            return (None, Some(changed_columns), Some(deltas));
+        } else {
+            let mut changed_candidate = candidate.clone();
+            changed_columns.iter().for_each(|i| changed_candidate[*i] = variables_manager.get_column_random_value(*i));
+            return (Some(changed_candidate), Some(changed_columns), None);
+        }
     }
 
     #[inline]
     pub fn swap_move_base(
         &mut self, candidate: 
-        &mut Array1<f64>, 
+        &Array1<f64>, 
         variables_manager: &VariablesManager, 
         mut current_change_count: usize, 
         group_ids: &Vec<usize>,
         group_name: &String,
-    ) -> Option<Vec<usize>> {
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         if current_change_count < 2 {
             current_change_count = 2;
         }
         if group_ids.len() < current_change_count {
-            return None;
+            return (None, None, None);
         }
 
         let changed_columns: Vec<usize>;
@@ -110,25 +118,36 @@ impl TabuMoves {
         } else {
             changed_columns = self.select_non_tabu_ids(group_name, current_change_count, group_ids.len());
         }
-        for i in 1..current_change_count {
-            candidate.swap(changed_columns[i-1], changed_columns[i]);
-        }
 
-        return Some(changed_columns);
+        if incremental {
+            let mut deltas: Vec<f64> = Vec::new();
+            for i in 1..current_change_count {
+                deltas.push(candidate[changed_columns[i]]);
+                deltas.push(candidate[changed_columns[i-1]]);
+            }
+            return (None, Some(changed_columns), Some(deltas));
+        } else {
+            let mut changed_candidate = candidate.clone();
+            for i in 1..current_change_count {
+                changed_candidate.swap(changed_columns[i-1], changed_columns[i]);
+            }
+            return (Some(changed_candidate), Some(changed_columns), None);
+        }
     }
 
     #[inline]
     pub fn swap_edges_move_base(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
         mut current_change_count: usize, 
         group_ids: &Vec<usize>,
         group_name: &String,
-    ) -> Option<Vec<usize>> {
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         if group_ids.len() == 0 {
-            return None;
+            return (None, None, None);
         }
         if current_change_count < 2 {
             current_change_count = 2;
@@ -154,28 +173,42 @@ impl TabuMoves {
         }
         edges.rotate_left(1);
 
-        for i in 1..current_change_count {
-            let left_edge = edges[i-1];
-            let right_edge = edges[i];
-            candidate.swap(left_edge.0, right_edge.0);
-            candidate.swap(left_edge.1, right_edge.1);
+        if incremental {
+            let mut deltas: Vec<f64> = Vec::new();
+            for i in 1..current_change_count {
+                let left_edge = edges[i-1];
+                let right_edge = edges[i];
+                deltas.push(candidate[right_edge.0]);
+                deltas.push(candidate[left_edge.0]);
+                deltas.push(candidate[right_edge.1]);
+                deltas.push(candidate[left_edge.1]);
+            }
+            return (None, Some(changed_columns), Some(deltas));
+        } else {
+            let mut changed_candidate = candidate.clone();
+            for i in 1..current_change_count {
+                let left_edge = edges[i-1];
+                let right_edge = edges[i];
+                changed_candidate.swap(left_edge.0, right_edge.0);
+                changed_candidate.swap(left_edge.1, right_edge.1);
+            }
+            return (Some(changed_candidate), Some(changed_columns), None);
         }
-
-        return Some(changed_columns);
     }
 
     #[inline]
     pub fn insertion_move_base(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
         mut current_change_count: usize, 
         group_ids: &Vec<usize>,
-        group_name: &String
-    ) -> Option<Vec<usize>> {
+        group_name: &String,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         if group_ids.len() <= 1 {
-            return None;
+            return (None, None, None);
         }
 
         let columns_to_change: Vec<usize>;
@@ -189,38 +222,56 @@ impl TabuMoves {
         let put_in_id = columns_to_change[1];
         let old_ids: Vec<usize>;
         let mut shifted_ids: Vec<usize>;
+        let left_rotate;
         if get_out_id < put_in_id {
             old_ids = (get_out_id..=put_in_id).into_iter().map(|i| group_ids[i]).collect();
             shifted_ids = old_ids.clone();
             shifted_ids.rotate_left(1);
+            left_rotate = true;
 
         } else if get_out_id > put_in_id {
             old_ids = (put_in_id..=get_out_id).into_iter().map(|i| group_ids[i]).collect();
             shifted_ids = old_ids.clone();
             shifted_ids.rotate_right(1);
+            left_rotate = false;
 
         } else {
-            return None;
+            return (None, None, None);
         }
 
-        old_ids.iter().zip(shifted_ids.iter()).for_each(|(oi, si)| candidate.swap(*oi, *si));
-        let changed_columns = old_ids;
+        let changed_columns = old_ids.clone();
 
-        return Some(changed_columns);
+        if incremental {
+            let mut deltas: Vec<f64> = Vec::new();
+            for old_id in old_ids {
+                deltas.push(candidate[old_id]);
+            }
+            if left_rotate {
+                deltas.rotate_left(1);
+            } else {
+                deltas.rotate_right(1);
+            }
+            return (None, Some(changed_columns), Some(deltas));
+        } else {
+            let mut changed_candidate = candidate.clone();
+            old_ids.iter().zip(shifted_ids.iter()).for_each(|(oi, si)| changed_candidate.swap(*oi, *si));
+            return (Some(changed_candidate), Some(changed_columns), None);
+        }
     }
 
     #[inline]
     pub fn scramble_move_base(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
         mut current_change_count: usize, 
         group_ids: &Vec<usize>,
         group_name: &String,
-    ) -> Option<Vec<usize>> {
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         if group_ids.len() < current_change_count - 1 {
-            return None;
+            return (None, None, None);
         }
 
         let current_start_id: usize;
@@ -234,9 +285,19 @@ impl TabuMoves {
         let mut scrambled_columns = native_columns.clone();
         scrambled_columns.shuffle(&mut StdRng::from_entropy());
 
-        native_columns.iter().zip(scrambled_columns.iter()).for_each(|(oi, si)| candidate.swap(*oi, *si));
-        let changed_columns = native_columns;
 
-        return Some(changed_columns);
+        if incremental {
+            let mut deltas: Vec<f64> = Vec::new();
+            for scrambled_column in &scrambled_columns {
+                deltas.push(candidate[*scrambled_column]);
+            }
+            let changed_columns = native_columns.clone();
+            return (None, Some(changed_columns), Some(deltas));
+        } else {
+            let changed_columns = native_columns.clone();
+            let mut changed_candidate = candidate.clone();
+            native_columns.iter().zip(scrambled_columns.iter()).for_each(|(oi, si)| changed_candidate.swap(*oi, *si));
+            return (Some(changed_candidate), Some(changed_columns), None);
+        }
     }
 }

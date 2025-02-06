@@ -201,6 +201,25 @@ impl VariablesManager {
         }).collect();
     }
 
+    pub fn fix_deltas(&self, deltas: &mut Vec<f64>, ids_to_fix: Option<Vec<usize>>) {
+
+        let range_ids;
+        match ids_to_fix {
+            Some(partial_ids) => range_ids = partial_ids,
+            None => range_ids = Vec::from_iter( (0..self.variables_count).into_iter() )
+        }
+
+        let _: () = 
+        range_ids.iter()
+        .enumerate()
+        .map(|(delta_id, var_id)| {
+            match &self.variables_vec[*var_id] {
+                GJF(x) => deltas[delta_id] = x.fix(deltas[delta_id]),
+                GJI(x) => deltas[delta_id] = x.fix(deltas[delta_id]),
+            }
+        }).collect();
+    }
+
 }
 
 unsafe impl Send for VariablesManager {}
