@@ -52,9 +52,6 @@ impl GJFloat {
 }
 
 impl GJFloat {
-    /*pub fn transform(&self, value: f64) -> f64 {
-        return value;
-    }*/
 
     pub fn set_name(&mut self, new_name: String) {
         self.name = new_name;
@@ -101,7 +98,9 @@ impl GJFloat {
                     return initial_value;
                 }
                 
-                // add some noise to exclude stucks for some metaheuristics (like LSHADE) in case of fully initialized values
+                // needful for LSHADE in case of initialized variables for the whole population
+                // (it needs to choose vectors from history archive / population, that are different by at least one component).
+                // LSHADE will be added in later versions for tasks, containing many floats
                 match self.normal_distribution {
                    Some(gauss) => {
                     initial_value = Normal::new(initial_value, 0.1).unwrap().sample(&mut self.random_generator);

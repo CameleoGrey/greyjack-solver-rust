@@ -28,7 +28,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
         candidates: &mut Vec<Individual<ScoreType>>
-    ) -> (Vec<Individual<ScoreType>>, bool);
+    ) -> Vec<Individual<ScoreType>>;
 
     fn build_updated_population_incremental(
         &mut self, 
@@ -36,7 +36,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         sample: &mut Array1<f64>,
         deltas: Vec<Vec<(usize, f64)>>,
         scores: Vec<ScoreType>,
-    ) -> (Vec<Individual<ScoreType>>, bool);
+    ) -> Vec<Individual<ScoreType>>;
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind;
 
