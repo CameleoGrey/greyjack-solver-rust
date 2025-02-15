@@ -44,6 +44,7 @@ where
     pub agent_top_individual: Individual<ScoreType>,
     pub global_top_individual: Arc<Mutex<Individual<ScoreType>>>,
     pub global_top_json: Arc<Mutex<Value>>,
+    pub is_global_top_updated: bool,
     
     pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
     pub score_precision: Option<Vec<u64>>,
@@ -96,6 +97,7 @@ where
             agent_top_individual: Individual::new(Array1::default(1), ScoreType::get_stub_score()),
             global_top_individual: global_top_individual,
             global_top_json: Arc::new(Mutex::new(Value::Null)),
+            is_global_top_updated: false,
             
             
             score_requester: score_requester,
@@ -132,7 +134,6 @@ where
         self.step_id = 0;
 
         loop {
-
             match self.agent_status {
                 AgentStatuses::Alive => {
                     match &self.score_requester.cotwin.score_calculator {
@@ -145,11 +146,14 @@ where
             }
             self.step_id += 1;
             
-            self.population.sort();
+            if self.population_size > 1 {
+                self.population.sort();
+            }
             self.update_top_individual();
             self.update_termination_strategy();
             self.update_agent_status();
             self.update_alive_agents_count();
+            self.log_solving_info();
             if self.alive_agents_count == 0 {
                 break;
             }
@@ -158,20 +162,20 @@ where
             if self.steps_to_send_updates <= 0 {
                 if self.agent_id % 2 == 0 {
                     match self.send_updates() {
-                        Err(x) => break,
+                        Err(x) => return,
                         _ => ()
                     }
                     match self.receive_updates() {
-                        Err(x) => break,
+                        Err(x) => return,
                         _ => ()
                     }
                 } else {
                     match self.receive_updates() {
-                        Err(x) => break,
+                        Err(x) => return,
                         _ => ()
                     }
                     match self.send_updates() {
-                        Err(x) => break,
+                        Err(x) => return,
                         _ => ()
                     }
                 }
@@ -190,7 +194,7 @@ where
             ScoreCalculatorVariants::PSC(psc) => {
                 let mut samples:Vec<Array1<f64>> = Vec::new();
                 for i in 0..self.population_size {
-                    let generated_sample = self.score_requester.variables_manager.sample_variables();
+                    let mut generated_sample = self.score_requester.variables_manager.sample_variables();
                     samples.push(generated_sample);
                 }
                 let scores = self.score_requester.request_score_plain(&samples);
@@ -270,27 +274,24 @@ where
 
         let me_base = self.metaheuristic_base.as_trait();
         let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-        let mut found_acceptable = false;
-        while found_acceptable == false {
             
-            //let start_time = chrono::Utc::now().timestamp_millis();
-            let samples: Vec<Array1<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-            //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-            
-            //let start_time = chrono::Utc::now().timestamp_millis();
-            let mut scores = self.score_requester.request_score_plain(&samples);
-            match &self.score_precision {
-                Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-                None => ()
-            }
-            let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
-            for i in 0..samples.len() {
-                candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
-            }
-            //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-
-            (new_population, found_acceptable) = me_base.build_updated_population(&self.population, &mut candidates);
+        //let start_time = chrono::Utc::now().timestamp_millis();
+        let samples: Vec<Array1<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+        //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+        
+        //let start_time = chrono::Utc::now().timestamp_millis();
+        let mut scores = self.score_requester.request_score_plain(&samples);
+        match &self.score_precision {
+            Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+            None => ()
         }
+        let mut candidates: Vec<Individual<ScoreType>> = Vec::new();
+        for i in 0..samples.len() {
+            candidates.push(Individual::new(samples[i].to_owned(), scores[i].to_owned()));
+        }
+        //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+
+        new_population = me_base.build_updated_population(&self.population, &mut candidates);
 
         self.population = new_population;
 
@@ -300,34 +301,42 @@ where
 
         let me_base = self.metaheuristic_base.as_trait();
         let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-        let mut found_acceptable = false;
-        let mut fresh_candidate = false;
-        while found_acceptable == false {
             
-            //let start_time = chrono::Utc::now().timestamp_millis();
-            let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-            //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+        //let start_time = chrono::Utc::now().timestamp_millis();
+        let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+        //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
-            //let start_time = chrono::Utc::now().timestamp_millis();
-            let mut scores = self.score_requester.request_score_incremental(&sample, &deltas);
-            match &self.score_precision {
-                Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-                None => ()
-            }
-            //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-
-            (new_population, found_acceptable) = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
+        //let start_time = chrono::Utc::now().timestamp_millis();
+        let mut scores = self.score_requester.request_score_incremental(&sample, &deltas);
+        match &self.score_precision {
+            Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+            None => ()
         }
+        //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
+
+        new_population = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
 
         self.population = new_population;
     }
 
-    fn send_updates(&mut self) -> Result<usize, usize> {
+    fn send_updates(&mut self) -> Result<(), String> {
 
-        // assume that the agent's population is already sorted 
-        let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
-        let migrants:Vec<Individual<ScoreType>> = (0..migrants_count).map(|i| self.population[i].clone()).collect();
         let round_robin_status_vec = self.round_robin_status_vec.clone();
+        let migrants:Vec<Individual<ScoreType>>;
+        match &mut self.metaheuristic_base {
+            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
+            MetaheuristicsBasesVariants::LAB(la) => {
+                migrants = vec![self.population[0].clone(); 1];
+            },
+            MetaheuristicsBasesVariants::TSB(tsb) => {
+                migrants = vec![self.population[0].clone(); 1];
+            },
+            MetaheuristicsBasesVariants::GAB(gab) => {
+                // assume that the agent's population is already sorted
+                let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
+                migrants = (0..migrants_count).map(|i| self.population[i].clone()).collect();
+            },
+        }
 
         let agent_update = AgentToAgentUpdate::new(self.agent_id, migrants, round_robin_status_vec);
         let send_result = self.updates_to_agent_sender.as_mut().unwrap().send(agent_update);
@@ -338,14 +347,14 @@ where
                     _ => {
                         let error_message = format!("Warning! Failed to send updates by Agent {} due to {e}", self.agent_id);
                         println!("{}", error_message);
+                        return Err(error_message);
                     }
                 }
-                return Err(1);
             },
             _ => ()
         }
 
-        Ok(0)
+        Ok(())
     }
 
     fn receive_updates(&mut self) -> Result<usize, usize> {
@@ -388,26 +397,50 @@ where
                 let migrants_count = received_updates.migrants.len();
                 comparison_ids = ((self.population_size - migrants_count)..self.population_size).collect();
             },
-            MetaheuristicKind::LocalSearch => comparison_ids = (0..received_updates.migrants.len()).collect()
+            MetaheuristicKind::LocalSearch => comparison_ids = vec![0; 1]
         }
 
-        (0..received_updates.migrants.len()).for_each(|i| {
-            if received_updates.migrants[i] <= self.population[comparison_ids[i]] {
-                self.population[comparison_ids[i]] = received_updates.migrants[i].clone();
+        match &mut self.metaheuristic_base {
+            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
+            MetaheuristicsBasesVariants::LAB(la) => {
+                let migrant = &received_updates.migrants[0];
+                if (migrant.score <= la.late_scores.back().unwrap().clone()) || (migrant.score <= self.population[0].score) {
+                    la.late_scores.push_front(migrant.score.clone());
+                    if la.late_scores.len() > la.late_acceptance_size {
+                        la.late_scores.pop_back();
+                    }
+
+                    //println!("Migrant: {:?} \n Native: {:?}", migrant, self.population[0]);
+
+                    self.population[0] = migrant.clone();
+                }
+            },
+            MetaheuristicsBasesVariants::TSB(tsb) => {
+                let migrant = &received_updates.migrants[0];
+                if migrant.score <= self.population[0].score {
+                    self.population[0] = migrant.clone();
+                }
             }
-        });
+            _ => (0..received_updates.migrants.len()).for_each(|i| {
+                if received_updates.migrants[i] <= self.population[comparison_ids[i]] {
+                    self.population[comparison_ids[i]] = received_updates.migrants[i].clone();
+                }
+            })
+        }
 
         Ok(0)
 
     }
 
     fn update_global_top(&mut self) {
+        self.is_global_top_updated = false;
         let mut global_top_individual = self.global_top_individual.lock().unwrap();
             let mut global_top_json = self.global_top_json.lock().unwrap();
             //println!("{:?}", *global_top_individual);
             if self.agent_top_individual.score < global_top_individual.score {
                 *global_top_individual = self.agent_top_individual.clone();
                 *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
+                self.is_global_top_updated = true;
 
                 //println!("{:?}", *global_top_individual);
 
@@ -415,21 +448,37 @@ where
                     self.notify_observers(global_top_json.clone());
                 }
             }
-            
-            match self.agent_status {
-                AgentStatuses::Alive => {
-                    match self.logging_level {
-                        SolverLoggingLevels::Info => {
+    }
+
+    pub fn log_solving_info(&self) {
+        match self.agent_status {
+            AgentStatuses::Alive => {
+                match self.logging_level {
+                    SolverLoggingLevels::Info => {
+                        let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
+                        let info_message = format!("{}, Agent: {:3}, Steps: {:10}, Global best score: {}, Solving time: {}", 
+                            Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, self.global_top_individual.lock().unwrap().score, solving_time);
+                        println!("{}", info_message);
+                    },
+                    SolverLoggingLevels::FreshOnly => {
+                        if self.is_global_top_updated {
                             let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
-                            let info_message = format!("{}, Agent: {:3}, Steps: {:10}, Global best score: {}, Solving time: {}", 
-                                Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, global_top_individual.score, solving_time);
+                            let info_message = format!("{}, Agent: {:3}, Steps: {:10}, Global best: {}, Solving time: {}", 
+                                Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, self.global_top_individual.lock().unwrap().score, solving_time);
                             println!("{}", info_message);
-                        },
-                        _ => (),
-                    }
-                },
-                _ => ()
-            }
+                        }
+                    },
+                    SolverLoggingLevels::Trace => {
+                        let solving_time = ((Utc::now().timestamp_millis() - self.solving_start) as f64) / 1000.0;
+                        let info_message = format!("{}, Agent: {:3}, Steps: {:10}, Global best: {}, Agent's best/current: {} / {}, Solving time: {}", 
+                            Local::now().format("%Y-%m-%d %H:%M:%S"), self.agent_id, self.step_id, self.global_top_individual.lock().unwrap().score, self.agent_top_individual.score, self.population[0].score, solving_time);
+                        println!("{}", info_message);
+                    },
+                    _ => (),
+                }
+            },
+            _ => ()
+        }
     }
 
     pub fn convert_to_json(&self, individual: Individual<ScoreType>) -> Value {

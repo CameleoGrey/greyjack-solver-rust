@@ -9,5 +9,5 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + Send {
     fn new(use_incremental_score_calculation: bool) -> Self;
 
-    fn build_cotwin(&self, domain: DomainType) -> Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>;
+    fn build_cotwin(&self, domain: DomainType, is_already_initialized: bool) -> Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>;
 }

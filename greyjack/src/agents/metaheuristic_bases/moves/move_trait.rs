@@ -12,32 +12,44 @@ pub trait MoveTrait {
 
     fn change_move(
         &mut self, 
-        candidate: &mut Array1<f64>, 
-        variables_manager: &VariablesManager, 
-    ) -> Option<Vec<usize>>;
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
 
     fn swap_move(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
-    ) -> Option<Vec<usize>>;
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
 
     fn swap_edges_move(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
-    ) -> Option<Vec<usize>>;
-
-    fn insertion_move(
-        &mut self, 
-        candidate: &mut Array1<f64>, 
-        variables_manager: &VariablesManager, 
-    ) -> Option<Vec<usize>>;
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
 
     fn scramble_move(
         &mut self, 
-        candidate: &mut Array1<f64>, 
+        candidate: &Array1<f64>, 
         variables_manager: &VariablesManager, 
-    ) -> Option<Vec<usize>>;
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
+
+    fn insertion_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
+
+    fn inverse_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>);
 
 }

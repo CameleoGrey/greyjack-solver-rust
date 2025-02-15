@@ -60,10 +60,6 @@ impl GJInteger {
 
 impl GJInteger {
 
-    /*pub fn transform(&self, value: i64) -> f64 {
-        return value as f64;
-    }*/
-
     pub fn set_name(&mut self, new_name: String) {
         self.name = new_name;
     }
@@ -92,7 +88,7 @@ impl GJInteger {
                 None => panic!("Frozen value must be initialized")
             }
         }
-        
+
         let mut fixed_value = Self::min(Self::max(value, self.lower_bound), self.upper_bound);
         fixed_value = math_utils::rint(fixed_value);
 
@@ -122,7 +118,9 @@ impl GJInteger {
                     return initial_value as f64;
                 }
                 
-                // add some noise to exclude stucks for some metaheuristics in case of fully initialized values
+                // needful for LSHADE in case of initialized variables for the whole population
+                // (it needs to choose vectors from history archive / population, that are different by at least one component).
+                // LSHADE will be added in later versions for tasks, containing many floats
                 match self.normal_distribution {
                    Some(gauss) => {
                     initial_value = Normal::new(initial_value, 0.1).unwrap().sample(&mut self.random_generator);

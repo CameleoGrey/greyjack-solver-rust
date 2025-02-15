@@ -1,15 +1,17 @@
 
 
-use std::collections::HashMap;
+use crate::agents::base::{Agent, AgentStatuses, AgentToAgentUpdate, Individual};
+use crate::agents::AgentBuildersVariants;
+use crate::domain::DomainBuilderTrait;
+use crate::cotwin::{CotwinBuilderTrait, CotwinEntityTrait};
+use crate::score_calculation::scores::ScoreTrait;
+use super::ObserverTrait;
+use super::SolverLoggingLevels;
+use super::InitialSolutionVariants;
+
 use std::ops::AddAssign;
 use std::fmt::{Debug, Display};
 use std::sync::{Arc, Mutex};
-
-use crate::agents::base::{Agent, AgentStatuses, AgentToAgentUpdate, Individual};
-use crate::agents::base::AgentStatuses::*;
-use crate::agents::AgentBuildersVariants;
-use crate::cotwin::{CotwinBuilderTrait, CotwinEntityTrait};
-use crate::score_calculation::scores::ScoreTrait;
 use crossbeam_channel::*;
 use ndarray::Array1;
 use rayon::prelude::*;
@@ -17,31 +19,23 @@ use std::env;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::ObserverTrait;
-use super::ObservableTrait;
-
-#[derive(Clone)]
-pub enum SolverLoggingLevels {
-    Info,
-    Warn,
-    Silent
-}
-
 pub struct Solver {}
 
 impl Solver {
 
-    pub fn solve<DomainType, CotwinBuilder, EntityVariants, UtilityObjectVariants, ScoreType> (
-        domain: &DomainType,
+    pub fn solve<DomainType, DomainBuilder, CotwinBuilder, EntityVariants, UtilityObjectVariants, ScoreType> (
+        domain_builder: DomainBuilder,
         cotwin_builder: CotwinBuilder,
         agent_builder: AgentBuildersVariants<ScoreType>,
         n_jobs: usize,
         score_precision: Option<Vec<u64>>,
         logging_level: SolverLoggingLevels,
-        observers: Option<Vec<Box<dyn ObserverTrait + Send>>>
+        observers: Option<Vec<Box<dyn ObserverTrait + Send>>>,
+        initial_solution: Option<InitialSolutionVariants<DomainType>>
     ) -> Value
     where
     DomainType: Clone + Send,
+    DomainBuilder: DomainBuilderTrait<DomainType> + Clone + Send + Sync,
     CotwinBuilder: CotwinBuilderTrait<DomainType, EntityVariants, UtilityObjectVariants, ScoreType> + Clone + Send,
     EntityVariants: CotwinEntityTrait + Send,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
@@ -63,11 +57,12 @@ impl Solver {
         }
 
         let agent_ids:Vec<usize> = (0..n_jobs).collect();
-        let domains: Vec<DomainType> = vec![domain.clone(); n_jobs];
+        let domain_builders: Vec<DomainBuilder> = vec![domain_builder.clone(); n_jobs];
         let cotwin_builders: Vec<CotwinBuilder> = vec![cotwin_builder.clone(); n_jobs];
         let agent_builders: Vec<AgentBuildersVariants<ScoreType>> = vec![agent_builder.clone(); n_jobs];
         let score_precisions = vec![score_precision; n_jobs];
         let logging_levels = vec![logging_level; n_jobs];
+        let initial_solutions: Vec<Option<InitialSolutionVariants<DomainType>>> = vec![initial_solution.clone(); n_jobs];
         let mut round_robin_status_vec: Vec<AgentStatuses> = Vec::new();
         let mut agents_updates_senders: Vec<Sender<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let mut agents_updates_receivers: Vec<Receiver<AgentToAgentUpdate<ScoreType>>> = Vec::new();
@@ -97,7 +92,7 @@ impl Solver {
         let agents_round_robin_status_clones = vec![round_robin_status_vec.clone(); n_jobs];
         agents_updates_receivers.rotate_right(1);
 
-        domains.into_par_iter()
+        domain_builders.into_par_iter()
         .zip(cotwin_builders.into_par_iter())
         .zip(agent_builders.into_par_iter())
         .zip(agent_ids.into_par_iter())
@@ -107,25 +102,40 @@ impl Solver {
         .zip(score_precisions.into_par_iter())
         .zip(logging_levels.into_par_iter())
         .zip(observers_counts.into_par_iter())
-        .for_each(|(((((((((domain_i, cotwin_builder_i), agent_builder_i), id_i), rrs_i), us_i), rc_i), sp), log_lev), oc)| {
-            let cotwin_i = cotwin_builder_i.build_cotwin(domain_i);
+        .zip(initial_solutions.into_par_iter())
+        .for_each(|((((((((((db_i, cb_i), ab_i), ai_i), rrs_i), us_i), rc_i), sp_i), ll_i), oc_i), is_i)| {
+            let domain_i;
+            let mut is_already_initialized = true;
+            match is_i {
+                None => {
+                    is_already_initialized = false;
+                    domain_i = db_i.build_domain_from_scratch();
+                },
+                Some(isv) => {
+                    match isv {
+                        InitialSolutionVariants::CotwinValuesVector(raw_solution) => domain_i = db_i.build_from_solution(&raw_solution),
+                        InitialSolutionVariants::DomainObject(existing_domain) => domain_i = db_i.build_from_domain(&existing_domain),
+                    }
+                }
+            }
+            let cotwin_i = cb_i.build_cotwin(domain_i, is_already_initialized);
             let mut agent_i;
-            match agent_builder_i {
+            match ab_i {
                 AgentBuildersVariants::GA(ga_builder) => agent_i = ga_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::LA(la_builder) => agent_i = la_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::TS(ts_builder) => agent_i = ts_builder.build_agent(cotwin_i),
             }
-            agent_i.agent_id = id_i;
-            agent_i.score_precision = sp;
+            agent_i.agent_id = ai_i;
+            agent_i.score_precision = sp_i;
             agent_i.round_robin_status_vec = rrs_i;
             agent_i.alive_agents_count = n_jobs;
             agent_i.updates_to_agent_sender = Some(us_i);
             agent_i.updates_for_agent_receiver = Some(rc_i);
             agent_i.global_top_individual = Arc::clone(&global_top_individual);
             agent_i.global_top_json = Arc::clone(&global_top_json);
-            agent_i.logging_level = log_lev;
+            agent_i.logging_level = ll_i;
             agent_i.observers = observers_arc.clone();
-            agent_i.observers_count = oc;
+            agent_i.observers_count = oc_i;
             
             //env::set_var("POLARS_MAX_THREADS",  (24 * n_jobs).to_string());
             agent_i.solve();

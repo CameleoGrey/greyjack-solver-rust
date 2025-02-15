@@ -1,10 +1,7 @@
 
 
-use std::collections::HashMap;
-use std::collections::VecDeque;
 use crate::score_calculation::score_requesters::VariablesManager;
-
-use super::moves::TabuMoves;
+use super::moves::Mover;
 use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
@@ -18,10 +15,11 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 
-use super::moves::BaseMoves;
-use super::moves::MoveTraitIncremental;
+use super::moves::MoveTrait;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
+use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::collections::HashSet;
 use std::cmp::max;
 
@@ -29,13 +27,7 @@ use std::cmp::max;
 
 pub struct TabuSearchBase {
 
-    pub population_size: usize,
     pub neighbours_count: usize,
-
-    pub tabu_size: usize,
-    pub tabus_vec_deque: VecDeque<String>,
-    pub tabus_set: HashSet<String>,
-
     pub tabu_entity_rate: f64,
 
     pub metaheuristic_kind: MetaheuristicKind,
@@ -43,16 +35,14 @@ pub struct TabuSearchBase {
 
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub discrete_ids: Option<Vec<usize>>,
-    pub mover: TabuMoves,
+    pub mover: Mover,
     pub moves_count: usize,
 }
 
 impl TabuSearchBase {
 
     pub fn new(
-        population_size: usize,
         neighbours_count: usize,
-        tabu_size: usize,
         tabu_entity_rate: f64,
         mutation_rate_multiplier: Option<f64>, 
         semantic_groups_map: HashMap<String, Vec<usize>>,
@@ -72,13 +62,7 @@ impl TabuSearchBase {
         }
 
         Self {
-            population_size: population_size,
             neighbours_count: neighbours_count,
-
-            tabu_size: tabu_size,
-            tabus_vec_deque: VecDeque::new(),
-            tabus_set: HashSet::new(),
-
             tabu_entity_rate: tabu_entity_rate,
 
             metaheuristic_kind: MetaheuristicKind::LocalSearch,
@@ -86,23 +70,24 @@ impl TabuSearchBase {
 
             group_mutation_rates_map: group_mutation_rates_map,
             discrete_ids: discrete_ids.clone(),
-            mover: TabuMoves::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new()),
-            moves_count: 5,
+            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new()),
+            moves_count: 6,
         }
     }
 
     fn mutate(&mut self, candidate: &Array1<f64>, variables_manager: &VariablesManager, incremental: bool) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
-        let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
         let changed_candidate: Option<Array1<f64>>;
         let changed_columns: Option<Vec<usize>>;
         let deltas: Option<Vec<f64>>;
+        let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
         match rand_method_id {
             0 => (changed_candidate, changed_columns, deltas) = self.change_move(candidate, variables_manager, incremental),
             1 => (changed_candidate, changed_columns, deltas) = self.swap_move(candidate, variables_manager, incremental),
             2 => (changed_candidate, changed_columns, deltas) = self.swap_edges_move(candidate, variables_manager, incremental),
-            3 => (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental),
-            4 => (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental),
+            3 => (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental),
+            4 => (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental),
+            5 => (changed_candidate, changed_columns, deltas) = self.inverse_move(candidate, variables_manager, incremental),
             _ => panic!("Invalid rand_method_id, no move with such id"),
         }
 
@@ -130,34 +115,13 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             }
         }
 
-        if population.len() > 1 {
-            population.sort();
-        }
-
         let current_best_candidate = population[0].variable_values.clone();
-        let mut candidates: Vec<Array1<f64>> = Vec::new();
-        while candidates.len() < self.neighbours_count {
-
-            let (changed_candidate, changed_columns, deltas) = self.mutate(&current_best_candidate, variables_manager, false);
+        let mut candidates: Vec<Array1<f64>> = (0..self.neighbours_count).into_iter().map(|i| {
+            let (changed_candidate, changed_columns, _) = self.mutate(&current_best_candidate, variables_manager, false);
             let mut candidate = changed_candidate.unwrap();
             variables_manager.fix_variables(&mut candidate, changed_columns);
-
-            if self.tabu_size > 0 {
-                let candidate_string = candidate.to_string();
-                if self.tabus_set.contains(&candidate_string) {
-                    continue;
-                } else {
-                    self.tabus_vec_deque.push_front(candidate_string.clone());
-                    self.tabus_set.insert(candidate_string);
-                }
-
-                if self.tabus_vec_deque.len() > self.tabu_size {
-                    self.tabus_set.remove( &self.tabus_vec_deque.pop_back().unwrap() );
-                }
-            }
-
-            candidates.push(candidate);
-        }
+            candidate
+        }).collect();
 
         return candidates;
     }
@@ -178,23 +142,16 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             }
         }
 
-        if population.len() > 1 {
-            population.sort();
-        }
-
         let current_best_candidate = population[0].variable_values.clone();
-        let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
-        while deltas.len() < self.neighbours_count {
+        let mut deltas: Vec<Vec<(usize, f64)>> = (0..self.neighbours_count).into_iter().map(|i| {
 
-            let (changed_candidate, changed_columns, candidate__deltas) = self.mutate(&current_best_candidate, variables_manager, true);
-            let mut candidate__deltas = candidate__deltas.unwrap();
-            variables_manager.fix_deltas(&mut candidate__deltas, changed_columns.clone());
-
+            let (_, changed_columns, candidate_deltas) = self.mutate(&current_best_candidate, variables_manager, true);
+            let mut candidate_deltas = candidate_deltas.unwrap();
+            variables_manager.fix_deltas(&mut candidate_deltas, changed_columns.clone());
             let changed_columns = changed_columns.unwrap();
-            let candidate__deltas: Vec<(usize, f64)> = changed_columns.iter().zip(candidate__deltas.iter()).map(|(col_id, delta_value)| (*col_id, *delta_value)).collect();
-
-            deltas.push(candidate__deltas);
-        }
+            let candidate_deltas: Vec<(usize, f64)> = changed_columns.iter().zip(candidate_deltas.iter()).map(|(col_id, delta_value)| (*col_id, *delta_value)).collect();
+            candidate_deltas
+        }).collect();
 
         return (current_best_candidate.clone(), deltas);
 
@@ -205,27 +162,18 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
         candidates: &mut Vec<Individual<ScoreType>>
-        ) -> (Vec<Individual<ScoreType>>, bool) {
+        ) -> Vec<Individual<ScoreType>> {
         
-        let mut new_population:Vec<Individual<ScoreType>>;
-        // current_population is already sorted in sample_candidates()
         candidates.sort();
+        let new_population:Vec<Individual<ScoreType>>;
         let best_candidate = candidates[0].clone();
         if best_candidate.score <= current_population[0].score {
             new_population = vec![best_candidate; 1];
-
-            if current_population.len() > 1 {
-            new_population.append(&mut current_population[0..(current_population.len()-1)].to_vec());
-            }
-            
-            if new_population.len() > self.population_size {
-                new_population = new_population[..self.population_size].to_vec();
-            }
         } else {
             new_population = current_population.clone();
         }
 
-        return (new_population, true);
+        return new_population;
     }
 
     fn build_updated_population_incremental(
@@ -234,7 +182,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             sample: &mut Array1<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
-        ) -> (Vec<Individual<ScoreType>>, bool) {
+        ) -> Vec<Individual<ScoreType>> {
         
 
         let best_score_id: usize = scores
@@ -243,32 +191,20 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             .min_by(|(_, a), (_, b)| a.cmp(b))
             .map(|(index, _)| index)
             .unwrap();
-        let best_score = scores[best_score_id].clone();
-
-        //println!("{:?}", scores);
-
-        let mut new_population:Vec<Individual<ScoreType>>;
+        let best_score = scores[best_score_id].clone();    
+        let new_population:Vec<Individual<ScoreType>>;
         if best_score <= current_population[0].score {
-
             let best_deltas = &deltas[best_score_id];
             for (var_id, new_value) in best_deltas {
                 sample[*var_id] = *new_value;
             }
             let best_candidate = Individual::new(sample.clone(), best_score);
             new_population = vec![best_candidate; 1];
-
-            if current_population.len() > 1 {
-            new_population.append(&mut current_population[0..(current_population.len()-1)].to_vec());
-            }
-            
-            if new_population.len() > self.population_size {
-                new_population = new_population[..self.population_size].to_vec();
-            }
         } else {
             new_population = current_population.clone();
         }
 
-        return (new_population, true);
+        return new_population;
 
 
     }
@@ -282,7 +218,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-impl MoveTraitIncremental for TabuSearchBase {
+impl MoveTrait for TabuSearchBase {
 
     fn get_necessary_info_for_move<'d>(
             &self, 
@@ -334,20 +270,6 @@ impl MoveTraitIncremental for TabuSearchBase {
             self.mover.swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
     }
 
-    fn insertion_move(
-            &mut self, 
-            candidate: &Array1<f64>, 
-            variables_manager: &VariablesManager,
-            incremental: bool,
-        ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
-
-            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
-            let current_change_count = 2;
-
-            self.mover.insertion_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
-        
-    }
-
     fn scramble_move(
             &mut self, 
             candidate: &Array1<f64>, 
@@ -359,6 +281,34 @@ impl MoveTraitIncremental for TabuSearchBase {
             let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
 
             self.mover.scramble_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
+    }
+
+    fn insertion_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+
+        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+        let current_change_count = 2;
+
+        self.mover.insertion_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
+    
+    }
+
+    fn inverse_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+
+        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+        let current_change_count = 2;
+
+        self.mover.inverse_move_base(candidate, variables_manager, current_change_count, group_ids, group_name, incremental)
+
     }
 }
 

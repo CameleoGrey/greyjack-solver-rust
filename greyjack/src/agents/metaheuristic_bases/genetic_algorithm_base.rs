@@ -15,10 +15,13 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 
-use super::moves::BaseMoves;
+use super::moves::Mover;
 use super::moves::MoveTrait;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
+use std::collections::VecDeque;
+use std::collections::HashSet;
+use std::cmp::max;
 
 pub struct GeneticAlgorithmBase {
 
@@ -27,13 +30,14 @@ pub struct GeneticAlgorithmBase {
     pub crossover_probability: f64,
     pub mutation_rate_multiplier: f64,
     pub p_best_rate: f64,
+    pub tabu_entity_rate: f64,
 
     pub metaheuristic_kind: MetaheuristicKind,
     pub metaheuristic_name: MetaheuristicNames,
 
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub discrete_ids: Option<Vec<usize>>,
-    pub base_mover: BaseMoves,
+    pub mover: Mover,
     pub moves_count: usize,
 }
 
@@ -41,9 +45,10 @@ impl GeneticAlgorithmBase {
 
     pub fn new(
         population_size: usize, 
-        crossover_probability: f64, 
-        mutation_rate_multiplier: Option<f64>, 
+        crossover_probability: f64,
         p_best_rate: f64,
+        tabu_entity_rate: f64,
+        mutation_rate_multiplier: Option<f64>, 
         semantic_groups_dict: HashMap<String, Vec<usize>>,
         discrete_ids: Option<Vec<usize>>,
     ) -> Self {
@@ -52,13 +57,13 @@ impl GeneticAlgorithmBase {
         let current_mutation_rate_multiplier;
         match mutation_rate_multiplier {
             Some(x) => current_mutation_rate_multiplier = mutation_rate_multiplier.unwrap(),
-            None => current_mutation_rate_multiplier = 1.0,
+            None => current_mutation_rate_multiplier = 0.0 // 0.0 - always use minimal possible move size, 1.0 - is more intuitive,
         }
-        let mut group_mutation_rates_map: HashMap<String, f64> = HashMap::new();
+        let mut group_mutation_rates_dict: HashMap<String, f64> = HashMap::new();
         for group_name in semantic_groups_dict.keys() {
             let group_size = semantic_groups_dict[group_name].len();
             let current_group_mutation_rate = current_mutation_rate_multiplier * (1.0 / (group_size as f64));
-            group_mutation_rates_map.insert(group_name.clone(), current_group_mutation_rate);
+            group_mutation_rates_dict.insert(group_name.clone(), current_group_mutation_rate);
         }
 
         Self {
@@ -67,14 +72,15 @@ impl GeneticAlgorithmBase {
             crossover_probability: crossover_probability,
             mutation_rate_multiplier: current_mutation_rate_multiplier,
             p_best_rate: p_best_rate,
+            tabu_entity_rate: tabu_entity_rate,
 
             metaheuristic_kind: MetaheuristicKind::Population,
             metaheuristic_name: MetaheuristicNames::GeneticAlgorithm,
 
-            group_mutation_rates_map: group_mutation_rates_map,
+            group_mutation_rates_map: group_mutation_rates_dict,
             discrete_ids: discrete_ids.clone(),
-            base_mover: BaseMoves{},
-            moves_count: 5,
+            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new()),
+            moves_count: 6,
         }
     }
 
@@ -131,20 +137,23 @@ impl GeneticAlgorithmBase {
         return (new_candidate_1, new_candidate_2);
     }
 
-    fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager) -> Option<Vec<usize>>{
+    fn mutate(&mut self, candidate: &mut Array1<f64>, variables_manager: &VariablesManager, incremental: bool) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>){
 
         let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
+        let changed_candidate: Option<Array1<f64>>;
         let changed_columns: Option<Vec<usize>>;
+        let deltas: Option<Vec<f64>>;
         match rand_method_id {
-            0 => changed_columns = self.change_move(candidate, variables_manager),
-            1 => changed_columns = self.swap_move(candidate, variables_manager),
-            2 => changed_columns = self.swap_edges_move(candidate, variables_manager),
-            3 => changed_columns = self.insertion_move(candidate, variables_manager),
-            4 => changed_columns = self.scramble_move(candidate, variables_manager),
+            0 => (changed_candidate, changed_columns, deltas) = self.change_move(candidate, variables_manager, incremental),
+            1 => (changed_candidate, changed_columns, deltas) = self.swap_move(candidate, variables_manager, incremental),
+            2 => (changed_candidate, changed_columns, deltas) = self.swap_edges_move(candidate, variables_manager, incremental),
+            3 => (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental),
+            4 => (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental),
+            5 => (changed_candidate, changed_columns, deltas) = self.inverse_move(candidate, variables_manager, incremental),
             _ => panic!("Invalid rand_method_id, no move with such id"),
         }
 
-        return changed_columns;
+        return (changed_candidate, changed_columns, deltas);
     }
 
 }
@@ -158,6 +167,15 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             current_top_individual: &Individual<ScoreType>,
             variables_manager: &VariablesManager
         ) -> Vec<Array1<f64>> {
+
+        if self.mover.tabu_entity_size_map.len() == 0 {
+            let semantic_groups_map = variables_manager.semantic_groups_map.clone();
+            for (group_name, group_ids) in semantic_groups_map {
+                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::new());
+                self.mover.tabu_entity_size_map.insert(group_name.clone(), max((self.tabu_entity_rate * (group_ids.len() as f64)).ceil() as usize, 1));
+                self.mover.tabu_ids_vecdeque_map.insert(group_name.clone(), VecDeque::new());
+            }
+        }
         
         population.sort();
 
@@ -170,15 +188,19 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
                 (candidate_1, candidate_2) = self.cross(candidate_1, candidate_2);
             }
             
-            let candidate_1_changed_columns = self.mutate(&mut candidate_1, variables_manager);
-            let candidate_2_changed_columns = self.mutate(&mut candidate_2, variables_manager);
+            let (mut changed_candidate_1, changed_columns_1, candidate_deltas_1) = self.mutate(&mut candidate_1, variables_manager, false);
+            let (mut changed_candidate_2, changed_columns_2, candidate_deltas_2) = self.mutate(&mut candidate_2, variables_manager, false);
 
-            // for crossover with np.rint() one doesn't need for fixing the whole candidate vector
+            candidate_1 = changed_candidate_1.unwrap();
+            candidate_2 = changed_candidate_2.unwrap();
+
+
+            // for crossover with rint() one doesn't need for fixing the whole candidate vector
             // float values are crossed without rint, but due to the convex sum they will be still into the bounds
             // all sampled values are always in the bounds
             // problems can occur only by swap mutations, so fix all changed by a move columns
-            variables_manager.fix_variables(&mut candidate_1, candidate_1_changed_columns);
-            variables_manager.fix_variables(&mut candidate_2, candidate_2_changed_columns);
+            variables_manager.fix_variables(&mut candidate_1, changed_columns_1);
+            variables_manager.fix_variables(&mut candidate_2, changed_columns_2);
 
             candidates.push(candidate_1);
             candidates.push(candidate_2);
@@ -200,7 +222,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         &mut self, 
         current_population: &Vec<Individual<ScoreType>>, 
         candidates: &mut Vec<Individual<ScoreType>>
-        ) -> (Vec<Individual<ScoreType>>, bool) {
+        ) -> Vec<Individual<ScoreType>> {
         
         let mut winners: Vec<Individual<ScoreType>> = Vec::new();
         for i in 0..self.population_size {
@@ -210,7 +232,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             winners.push(winner);
         }
 
-        return (winners, true);
+        return winners;
     }
 
     fn build_updated_population_incremental(
@@ -219,7 +241,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             sample: &mut Array1<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
-        ) -> (Vec<Individual<ScoreType>>, bool) {
+        ) -> Vec<Individual<ScoreType>> {
         
         panic!("Incremental candidates sampling is available only for local search approaches (TabuSearch, LateAcceptance, etc).")
     }
@@ -236,75 +258,94 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
 impl MoveTrait for GeneticAlgorithmBase {
 
     fn get_necessary_info_for_move<'d>(
-        &self, 
+        &self,
         variables_manager: &'d VariablesManager
-    ) -> (&'d Vec<usize>, &'d String,  usize) {
-    
+    ) -> (&'d Vec<usize>, &'d String, usize) {
+        
         let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
         let group_mutation_rate = self.group_mutation_rates_map[group_name];
         let random_values = Array1::random(variables_manager.variables_count, Uniform::new_inclusive(0.0, 1.0));
         let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
-        let current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
+        let mut current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
 
         return (group_ids, group_name, current_change_count);
     }
 
     fn change_move(
-            &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager, 
-        ) -> Option<Vec<usize>> {
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
-            let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
+        let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
+        self.mover.change_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
 
-            self.base_mover.change_move_base(candidate, variables_manager, current_change_count, &group_ids)   
     }
 
     fn swap_move(
-            &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager,
-        ) -> Option<Vec<usize>> {
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
             let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
         
-            self.base_mover.swap_move_base(candidate, variables_manager, current_change_count, &group_ids)
+            self.mover.swap_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
     }
-
+    
     fn swap_edges_move(
-            &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager, 
-        ) -> Option<Vec<usize>> {
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
-            let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
-            
-            self.base_mover.swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids)
-    }
-
-    fn insertion_move(
-            &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager, 
-        ) -> Option<Vec<usize>> {
-
-            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
-            let current_change_count = 2;
-
-            self.base_mover.insertion_move_base(candidate, variables_manager, current_change_count, group_ids)
+        let (group_ids, group_name, current_change_count) = self.get_necessary_info_for_move(variables_manager);
         
+        self.mover.swap_edges_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
     }
 
     fn scramble_move(
-            &mut self, 
-            candidate: &mut Array1<f64>, 
-            variables_manager: &VariablesManager, 
-        ) -> Option<Vec<usize>> {
-            
-            let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
-            let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+        
+        let mut current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
+        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
 
-            self.base_mover.scramble_move_base(candidate, variables_manager, current_change_count, group_ids)
+        self.mover.scramble_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
+    }
+
+    fn insertion_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager, 
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+
+        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+        let current_change_count = 2;
+
+        self.mover.insertion_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
+    
+    }
+
+    fn inverse_move(
+        &mut self, 
+        candidate: &Array1<f64>, 
+        variables_manager: &VariablesManager,
+        incremental: bool,
+    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+
+        let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
+        let current_change_count = 2;
+
+        self.mover.inverse_move_base(candidate, variables_manager, current_change_count, &group_ids, group_name, incremental)
+
     }
 }
 

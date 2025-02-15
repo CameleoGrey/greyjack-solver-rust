@@ -13,7 +13,7 @@ use std:: collections::HashMap;
 use std::string::String;
 use ndarray::Array1;
 use polars::prelude::*;
-
+use rayon::prelude::*;
 
 pub struct OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
 where
@@ -98,24 +98,18 @@ where
                     
                     let mut entity_attributes_map;
                     match entity {
-                        x => entity_attributes_map = entity.to_hash_map()
-                    }
-                    
-                    let mut cloned_keys: Vec<String> = Vec::new();
-                    for key in entity_attributes_map.keys() {
-                        cloned_keys.push(key.clone());
+                        x => entity_attributes_map = entity.to_vec()
                     }
 
-                    for attribute_name in cloned_keys {
+                    for (attribute_name, attribute_value) in entity_attributes_map {
                         let full_variable_name = planning_entities_group_name.to_owned() + ": " + &i.to_string() + "-->" + &attribute_name;
-                        let attribute_value = entity_attributes_map.get_mut(&attribute_name).unwrap();
                         let variable;
                         match attribute_value {
-                            GJF(float_value) => {
+                            GJF(mut float_value) => {
                                 float_value.set_name(full_variable_name.clone());
                                 variable = PlanningVariablesVariants::GJF(float_value.clone());
                             },
-                            GJI(integer_value) => {
+                            GJI(mut integer_value) => {
                                 integer_value.set_name(full_variable_name.clone());
                                 variable = PlanningVariablesVariants::GJI(integer_value.clone())
                             },
@@ -140,9 +134,9 @@ where
                 let mut group_columns: Vec<String> = Vec::new();
                 let entity_objects = entity_groups.get(group_name).unwrap();
                 let sample_object = &entity_objects[0];
-                let entity_field_names = sample_object.to_hash_map();
-                for field_name in entity_field_names.keys() {
-                    group_columns.push(field_name.clone());
+                let entity_field_names = sample_object.to_vec();
+                for name_value in entity_field_names {
+                    group_columns.push(name_value.0.clone());
                 }
                 column_map.insert(group_name.clone(), group_columns);
             }
@@ -170,16 +164,16 @@ where
                 }
 
                 for entity_object in entity_group {
-                    let entity_map_representation = entity_object.to_hash_map();
-                    for field_name in entity_map_representation.keys() {
-                        let field_cotwin_value = &entity_map_representation[field_name];
+                    let entity_vec_representation = entity_object.to_vec();
+                    for name_value in entity_vec_representation {
+                        let field_cotwin_value = name_value.1;
                         let field_polars_value;
                         match field_cotwin_value {
                             CotwinValueTypes::GJF(x) => field_polars_value = AnyValue::Null,
                             CotwinValueTypes::GJI(x) => field_polars_value = AnyValue::Null,
                             CotwinValueTypes::PAV(x) => field_polars_value = x.clone()
                         }
-                        entity_fields_data.get_mut(field_name).unwrap().push( field_polars_value );
+                        entity_fields_data.get_mut(&name_value.0).unwrap().push( field_polars_value );
                     }
                 }
                 
@@ -226,7 +220,7 @@ where
                 current_df.rechunk_mut();
 
                 if add_row_index == true {
-                    current_df = current_df.with_row_index("row_id".into(), None).unwrap();
+                    current_df = current_df.with_row_index("candidate_df_row_id".into(), None).unwrap();
                 }
 
                 self.planning_entity_dfs.insert(df_name.clone(), current_df.clone());
@@ -408,11 +402,11 @@ where
                     if delta_data_map.contains_key(&df_name) == false {
                         delta_data_map.insert(df_name.clone(), HashMap::new());
                         delta_data_map.get_mut(&df_name).unwrap().insert("sample_id".to_string(), Vec::new());
-                        delta_data_map.get_mut(&df_name).unwrap().insert("row_id".to_string(), Vec::new());
+                        delta_data_map.get_mut(&df_name).unwrap().insert("candidate_df_row_id".to_string(), Vec::new());
                     }
 
                     delta_data_map.get_mut(&df_name).unwrap().get_mut("sample_id").unwrap().push(AnyValue::UInt64(sample_id as u64));
-                    delta_data_map.get_mut(&df_name).unwrap().get_mut("row_id").unwrap().push(AnyValue::UInt64(row_id as u64));
+                    delta_data_map.get_mut(&df_name).unwrap().get_mut("candidate_df_row_id").unwrap().push(AnyValue::UInt64(row_id as u64));
 
                     let current_df_column_data = group_data_map.get(&df_name).unwrap();
                     current_df_column_data.iter().for_each(|(column_name, column_values)| {
@@ -439,7 +433,7 @@ where
                     let updated_column = Series::new(column_name.into(), updated_column_data);
                     current_df.with_column(updated_column).unwrap();
                 });
-                current_df = current_df.sort(["sample_id", "row_id"], SortMultipleOptions::default()).unwrap();
+                current_df = current_df.sort(["sample_id", "candidate_df_row_id"], SortMultipleOptions::default()).unwrap();
 
                 delta_dfs.insert(df_name.clone(), current_df);
             });

@@ -18,8 +18,9 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
     population_size: usize, 
     crossover_probability: f64, 
-    mutation_rate_multiplier: Option<f64>, 
     p_best_rate: f64,
+    tabu_entity_rate: f64,
+    mutation_rate_multiplier: Option<f64>,
     migration_rate: f64, 
     migration_frequency: usize, 
     termination_strategy: TerminationStrategiesVariants<ScoreType>
@@ -32,8 +33,9 @@ where
     pub fn new (
         population_size: usize, 
         crossover_probability: f64, 
-        mutation_rate_multiplier: Option<f64>, 
         p_best_rate: f64,
+        tabu_entity_rate: f64, 
+        mutation_rate_multiplier: Option<f64>, 
         migration_rate: f64, 
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>
@@ -42,8 +44,9 @@ where
         Self {
             population_size: population_size, 
             crossover_probability: crossover_probability, 
-            mutation_rate_multiplier: mutation_rate_multiplier, 
             p_best_rate: p_best_rate,
+            tabu_entity_rate: tabu_entity_rate,
+            mutation_rate_multiplier: mutation_rate_multiplier, 
             migration_rate: migration_rate, 
             migration_frequency: migration_frequency, 
             termination_strategy: termination_strategy
@@ -61,8 +64,8 @@ where
         let semantic_groups_dict = score_requester.variables_manager.semantic_groups_map.clone();
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
-        let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, 
-                                                                                 self.mutation_rate_multiplier, self.p_best_rate, 
+        let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, self.p_best_rate, self.tabu_entity_rate, 
+                                                                                 self.mutation_rate_multiplier, 
                                                                                  semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::GAB(metaheuristic_base);
         
