@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use crate::score_calculation::score_requesters::VariablesManager;
+use crate::utils;
 use ndarray::Array1;
 use ndarray_rand::RandomExt;
 use rand::{seq::SliceRandom, SeedableRng};
@@ -18,6 +19,7 @@ pub struct Mover {
     pub tabu_ids_vecdeque_map: HashMap<String, VecDeque<usize>>,
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub moves_count: u64,
+    pub move_probas_tresholds: Vec<f64>,
 
 }
 
@@ -29,8 +31,37 @@ impl Mover {
         tabu_ids_sets_map: HashMap<String, HashSet<usize>>,
         tabu_ids_vecdeque_map: HashMap<String, VecDeque<usize>>,
         group_mutation_rates_map: HashMap<String, f64>,
+        move_probas: Option<Vec<f64>>,
         
     ) -> Self {
+
+        let moves_count = 6;
+        let move_probas_vec: Vec<f64>;
+        match move_probas {
+            None => {
+                let mut increments: Vec<f64> = vec![math_utils::round(1.0 / (moves_count as f64), 3); moves_count];
+                increments[0] += 1.0 - increments.iter().sum::<f64>();
+                let mut proba_tresholds = vec![0.0; moves_count];
+                let mut accumulator: f64 = 0.0;
+                increments.iter().enumerate().for_each(|(i, proba)| {
+                    accumulator += proba;
+                    proba_tresholds[i] = accumulator;
+                });
+                move_probas_vec = proba_tresholds;
+            },
+            Some(probas) => {
+                assert_eq!(probas.len(), moves_count, "Optional move probas vector length is not equal to available moves count");
+                assert_eq!(utils::math_utils::round(probas.iter().sum(), 1), 1.0, "Optional move probas sum must be equal to 1.0");
+
+                let mut proba_tresholds = vec![0.0; moves_count];
+                let mut accumulator: f64 = 0.0;
+                probas.iter().enumerate().for_each(|(i, proba)| {
+                    accumulator += proba;
+                    proba_tresholds[i] = accumulator;
+                });
+                move_probas_vec = proba_tresholds;
+            }
+        }
 
         Self {
             tabu_entity_rate: tabu_entity_rate,
@@ -38,7 +69,8 @@ impl Mover {
             tabu_ids_sets_map: tabu_ids_sets_map,
             tabu_ids_vecdeque_map: tabu_ids_vecdeque_map,
             group_mutation_rates_map: group_mutation_rates_map,
-            moves_count: 6,
+            moves_count: moves_count as u64,
+            move_probas_tresholds: move_probas_vec,
         }
     }
 
@@ -70,15 +102,28 @@ impl Mover {
         let changed_candidate: Option<Array1<f64>>;
         let changed_columns: Option<Vec<usize>>;
         let deltas: Option<Vec<f64>>;
-        let rand_method_id = Uniform::new(0, self.moves_count).sample(&mut StdRng::from_entropy());
-        match rand_method_id {
-            0 => (changed_candidate, changed_columns, deltas) = self.change_move(candidate, variables_manager, incremental),
-            1 => (changed_candidate, changed_columns, deltas) = self.swap_move(candidate, variables_manager, incremental),
-            2 => (changed_candidate, changed_columns, deltas) = self.swap_edges_move(candidate, variables_manager, incremental),
-            3 => (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental),
-            4 => (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental),
-            5 => (changed_candidate, changed_columns, deltas) = self.inverse_move(candidate, variables_manager, incremental),
-            _ => panic!("Invalid rand_method_id, no move with such id"),
+
+        let random_value = Uniform::new_inclusive(0.0, 1.0).sample(&mut StdRng::from_entropy());
+        if random_value <= self.move_probas_tresholds[0] {
+            (changed_candidate, changed_columns, deltas) = self.change_move(candidate, variables_manager, incremental);
+
+        } else if random_value <= self.move_probas_tresholds[1] {
+            (changed_candidate, changed_columns, deltas) = self.swap_move(candidate, variables_manager, incremental)
+
+        } else if random_value <= self.move_probas_tresholds[2] {
+            (changed_candidate, changed_columns, deltas) = self.swap_edges_move(candidate, variables_manager, incremental)
+
+        } else if random_value <= self.move_probas_tresholds[3] {
+            (changed_candidate, changed_columns, deltas) = self.scramble_move(candidate, variables_manager, incremental)
+
+        } else if random_value <= self.move_probas_tresholds[4] {
+            (changed_candidate, changed_columns, deltas) = self.insertion_move(candidate, variables_manager, incremental)
+
+        } else if random_value <= self.move_probas_tresholds[5] {
+            (changed_candidate, changed_columns, deltas) = self.inverse_move(candidate, variables_manager, incremental)
+
+        } else {
+            panic!("Something wrong with probabilities");
         }
 
         return (changed_candidate, changed_columns, deltas);

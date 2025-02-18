@@ -18,7 +18,8 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
     late_acceptance_size: usize,
     tabu_entity_rate: f64,
-    mutation_rate_multiplier: Option<f64>,  
+    mutation_rate_multiplier: Option<f64>,
+    move_probas: Option<Vec<f64>>,
     migration_frequency: usize, 
     termination_strategy: TerminationStrategiesVariants<ScoreType>
 }
@@ -30,7 +31,8 @@ where
     pub fn new (
         late_acceptance_size: usize,
         tabu_entity_rate: f64,
-        mutation_rate_multiplier: Option<f64>, 
+        mutation_rate_multiplier: Option<f64>,
+        move_probas: Option<Vec<f64>>,
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>
     ) -> Self {
@@ -38,7 +40,8 @@ where
         Self {
             late_acceptance_size: late_acceptance_size,
             tabu_entity_rate: tabu_entity_rate,
-            mutation_rate_multiplier: mutation_rate_multiplier, 
+            mutation_rate_multiplier: mutation_rate_multiplier,
+            move_probas: move_probas,
             migration_frequency: migration_frequency, 
             termination_strategy: termination_strategy
         }
@@ -56,7 +59,7 @@ where
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
         let metaheuristic_base = LateAcceptanceBase::new(self.late_acceptance_size, self.tabu_entity_rate,
-                                                                                 self.mutation_rate_multiplier, 
+                                                                                 self.mutation_rate_multiplier, self.move_probas.clone(),
                                                                                  semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::LAB(metaheuristic_base);
         

@@ -37,7 +37,6 @@ pub struct GeneticAlgorithmBase {
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub discrete_ids: Option<Vec<usize>>,
     pub mover: Mover,
-    pub moves_count: usize,
 }
 
 impl GeneticAlgorithmBase {
@@ -47,7 +46,8 @@ impl GeneticAlgorithmBase {
         crossover_probability: f64,
         p_best_rate: f64,
         tabu_entity_rate: f64,
-        mutation_rate_multiplier: Option<f64>, 
+        mutation_rate_multiplier: Option<f64>,
+        move_probas: Option<Vec<f64>>,
         semantic_groups_dict: HashMap<String, Vec<usize>>,
         discrete_ids: Option<Vec<usize>>,
     ) -> Self {
@@ -78,8 +78,7 @@ impl GeneticAlgorithmBase {
 
             group_mutation_rates_map: group_mutation_rates_map.clone(),
             discrete_ids: discrete_ids.clone(),
-            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map.clone()),
-            moves_count: 6,
+            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map.clone(), move_probas),
         }
     }
 
