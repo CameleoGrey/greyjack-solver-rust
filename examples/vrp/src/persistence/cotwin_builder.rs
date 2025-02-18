@@ -95,6 +95,7 @@ impl CotwinBuilder {
 
         let mut initial_vehicle_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
         let mut initial_customer_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
+        let mut is_frozen: Vec<bool> = vec![false; n_locations - n_depots];
 
         if is_already_initialized {
             let mut i = 0;
@@ -103,6 +104,7 @@ impl CotwinBuilder {
                 for customer in &vehicle_k.customers {
                     initial_vehicle_ids[i] = Some(k as i64);
                     initial_customer_ids[i] = Some(customer.vec_id as i64);
+                    is_frozen[i] = customer.frozen;
                     i += 1;
                 }
             }
@@ -114,12 +116,12 @@ impl CotwinBuilder {
                 // init: Some((i % k_vehicles) as i64)
                 vehicle_id: CotwinValueTypes::GJI(GJInteger::new(
                     &format!("planning_vehicle_id_{}", i), 
-                    initial_vehicle_ids[i - n_depots], 0, (k_vehicles-1) as i64, false, 
+                    initial_vehicle_ids[i - n_depots], 0, (k_vehicles-1) as i64, is_frozen[i - n_depots], 
                     Some(vec!["vehicle_assignment".to_string()]))),
                 // init: Some(i as i64)
                 customer_id: CotwinValueTypes::GJI(GJInteger::new(
                     &format!("planning_customer_id_{}", i), 
-                    initial_customer_ids[i - n_depots], n_depots as i64, (n_locations-1) as i64, false, 
+                    initial_customer_ids[i - n_depots], n_depots as i64, (n_locations-1) as i64, is_frozen[i - n_depots], 
                     Some(vec!["customer_assignment".to_string()])))
             });
 

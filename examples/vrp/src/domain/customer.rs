@@ -17,6 +17,7 @@ pub struct Customer {
     pub time_window_end: u64,
     pub service_time: u64,
     pub distances_to_other_customers_map: Option<HashMap<String, f64>>,
+    pub frozen: bool,
 
 }
 
@@ -33,6 +34,7 @@ impl Customer {
         time_window_end: u64,
         service_time: u64,
         distances_to_other_customers_map: Option<HashMap<String, f64>>,
+        frozen: bool,
 
     ) -> Self {
 
@@ -47,6 +49,7 @@ impl Customer {
             time_window_end: time_window_end,
             service_time: service_time,
             distances_to_other_customers_map: distances_to_other_customers_map,
+            frozen: frozen,
         }
     }
 
