@@ -239,6 +239,7 @@ impl DomainBuilder {
                 time_window_end: 0,
                 service_time: 0,
                 demand: 0,
+                frozen: false,
             };
             customers_vec.push(readed_customer);
             customers_counter += 1;
