@@ -50,7 +50,8 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord 
     pub fn new(
         late_acceptance_size: usize,
         tabu_entity_rate: f64,
-        mutation_rate_multiplier: Option<f64>, 
+        mutation_rate_multiplier: Option<f64>,
+        move_probas: Option<Vec<f64>>,
         semantic_groups_dict: HashMap<String, Vec<usize>>,
         discrete_ids: Option<Vec<usize>>,
     ) -> Self {
@@ -79,7 +80,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord 
 
             group_mutation_rates_map: group_mutation_rates_map.clone(),
             discrete_ids: discrete_ids.clone(),
-            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map.clone()),
+            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map.clone(), move_probas),
         }
     }
 

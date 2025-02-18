@@ -77,11 +77,11 @@ fn main() {
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();
 
-    // 1-st stage (relatively fast and good for initial solution)
+    // 1-st stage (relatively fast and good for acceptable solution)
     //let termination_strategy = StL(StepsLimit::new(100));
     let termination_strategy = SNI(ScoreNoImprovement::new(5*1000)); 
-    let agent_builder = TS(TabuSearch::new(32, 0.2, None, 1, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(2, 0.2, None, 1000, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 1, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(5, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 1000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
     None, None);
@@ -100,25 +100,25 @@ fn main() {
     (0..2).into_iter().for_each(|k| interim_domain.vehicles[k].customers.iter_mut().for_each(|customer| customer.frozen = true));
 
     let termination_strategy = SNI(ScoreNoImprovement::new(5*1000)); 
-    let agent_builder = TS(TabuSearch::new(32, 0.2, None, 1, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(2, 0.2, None, 1000, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(32, 0.2, None, None, 1, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(2, 0.2, None, None, 1000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
     None, Some(InitialSolutionVariants::DomainObject(interim_domain)));*/
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // 2-nd stage (relatively slow and more quality)
-    let termination_strategy = SNI(ScoreNoImprovement::new(15*1000)); 
-    //let agent_builder = TS(TabuSearch::new(128, 0.2, None, 10, termination_strategy));
-    let agent_builder = LA(LateAcceptance::new(64, 0.2, None, 10000, termination_strategy));
+    let termination_strategy = SNI(ScoreNoImprovement::new(30*1000)); 
+    //let agent_builder = TS(TabuSearch::new(128, 0.2, None, None, 10, termination_strategy));
+    let agent_builder = LA(LateAcceptance::new(64, 0.2, None, None, 10000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
     None, Some(InitialSolutionVariants::CotwinValuesVector(solution)));
 
     // 3-rd stage (just to try increase quality and reuse solution from 2-nd stage)
     /*let termination_strategy = SNI(ScoreNoImprovement::new(30*1000));
-    let agent_builder = TS(TabuSearch::new(512, 0.2, None, 10, termination_strategy));    
-    //let agent_builder = LA(LateAcceptance::new(200, 0.2, None, 10000, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(512, 0.2, None, None, 10, termination_strategy));    
+    //let agent_builder = LA(LateAcceptance::new(200, 0.2, None, None, 10000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
     None, Some(InitialSolutionVariants::CotwinValuesVector(solution)));*/

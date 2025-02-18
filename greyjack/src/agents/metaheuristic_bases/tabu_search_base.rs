@@ -41,7 +41,8 @@ impl TabuSearchBase {
     pub fn new(
         neighbours_count: usize,
         tabu_entity_rate: f64,
-        mutation_rate_multiplier: Option<f64>, 
+        mutation_rate_multiplier: Option<f64>,
+        move_probas: Option<Vec<f64>>,
         semantic_groups_map: HashMap<String, Vec<usize>>,
         discrete_ids: Option<Vec<usize>>,
     ) -> Self {
@@ -66,7 +67,7 @@ impl TabuSearchBase {
             metaheuristic_name: MetaheuristicNames::TabuSearch,
 
             discrete_ids: discrete_ids.clone(),
-            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map),
+            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map, move_probas),
         }
     }
 

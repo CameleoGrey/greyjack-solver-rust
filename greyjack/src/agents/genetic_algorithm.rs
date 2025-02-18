@@ -21,6 +21,7 @@ where
     p_best_rate: f64,
     tabu_entity_rate: f64,
     mutation_rate_multiplier: Option<f64>,
+    move_probas: Option<Vec<f64>>,
     migration_rate: f64, 
     migration_frequency: usize, 
     termination_strategy: TerminationStrategiesVariants<ScoreType>
@@ -36,6 +37,7 @@ where
         p_best_rate: f64,
         tabu_entity_rate: f64, 
         mutation_rate_multiplier: Option<f64>, 
+        move_probas: Option<Vec<f64>>,
         migration_rate: f64, 
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>
@@ -47,6 +49,7 @@ where
             p_best_rate: p_best_rate,
             tabu_entity_rate: tabu_entity_rate,
             mutation_rate_multiplier: mutation_rate_multiplier, 
+            move_probas: move_probas,
             migration_rate: migration_rate, 
             migration_frequency: migration_frequency, 
             termination_strategy: termination_strategy
@@ -65,7 +68,7 @@ where
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
         let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, self.p_best_rate, self.tabu_entity_rate, 
-                                                                                 self.mutation_rate_multiplier, 
+                                                                                 self.mutation_rate_multiplier, self.move_probas.clone(),
                                                                                  semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::GAB(metaheuristic_base);
         
