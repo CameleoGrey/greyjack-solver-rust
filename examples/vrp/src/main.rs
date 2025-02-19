@@ -37,11 +37,11 @@ use rayon;
     let termination_strategy = SNI(ScoreNoImprovement::new(50*1000));
     
     //after bug-fixes very works very cool
-    //let agent_builder = TS(TabuSearch::new(64, 0.2, None, 100, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(64, 0.2, None, None, 100, termination_strategy));
     //slower convergence, but better chances to find global optimum
-    let agent_builder = LA(LateAcceptance::new(64, 0.2, None, 10000, termination_strategy));
+    let agent_builder = LA(LateAcceptance::new(64, 0.2, None, None, 10000, termination_strategy));
     //good finds global optimum on small datasets, but slow due to need of using plain score calculator
-    //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), 0.00001, 10, termination_strategy)); 
+    //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), None, 0.00001, 10, termination_strategy)); 
 
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(128).build_global().unwrap();
@@ -63,25 +63,41 @@ use rayon;
 fn main() {
 
     let mut file_path = vec!["data", "vrp", "data", "import"];
-    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d2-n50-k10.vrp"]); //optimum: ~16.3; first_fit: ~27.89
-    file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~45.2; first_fit: ~124.884
-    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d8-n1000-k40.vrp"]); //optimum: ~64.7; first_fit: ~154.565
-    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d10-n2750-k55.vrp"]); //optimum: ~; first_fit: ~380.9
+
+    // 1-depot datasets (plain CVRP)
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n50-k10.vrp"]);
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n500-k20.vrp"]);
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n2750-k55.vrp"]);
+    // multidepot datasets
+    //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d2-n50-k10.vrp"]);
+    //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d5-n500-k20.vrp"]);
+    //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d8-n1000-k40.vrp"]);
+    //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d10-n2750-k55.vrp"]);
+    // multidepot datasets with timewindow constraint
+    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d2-n50-k10.vrp"]); //optimum: ~15.98; first_fit: ~27.89
+    file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~43.3; first_fit: ~124.884
+    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d8-n1000-k40.vrp"]); //optimum: ~58.1; first_fit: ~154.565
+    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d10-n2750-k55.vrp"]); //optimum: ~111; first_fit: ~380.9
 
     let file_path: PathBuf = file_path.iter().collect();
     let file_path = file_path.as_os_str().to_str().unwrap();
 
     let mut domain_builder = DomainBuilder::new(file_path);
-    let cotwin_builder = CotwinBuilder::new(true);
+    let cotwin_builder = CotwinBuilder::new(true, true);
 
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();
 
-    // 1-st stage (relatively fast and good for acceptable solution)
+    // 1-st stage
     //let termination_strategy = StL(StepsLimit::new(100));
-    let termination_strategy = SNI(ScoreNoImprovement::new(5*1000)); 
-    let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 1, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(5, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 1000, termination_strategy));
+    let termination_strategy = SNI(ScoreNoImprovement::new(30*1000));
+    //let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(128, 0.2, None, None, 10, termination_strategy));
+    //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
+    // best for small datasets
+    //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, None, 10000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
     None, None);
@@ -107,8 +123,8 @@ fn main() {
     None, Some(InitialSolutionVariants::DomainObject(interim_domain)));*/
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // 2-nd stage (relatively slow and more quality)
-    let termination_strategy = SNI(ScoreNoImprovement::new(30*1000)); 
+    // 2-nd stage
+    let termination_strategy = SNI(ScoreNoImprovement::new(60*1000)); 
     //let agent_builder = TS(TabuSearch::new(128, 0.2, None, None, 10, termination_strategy));
     let agent_builder = LA(LateAcceptance::new(64, 0.2, None, None, 10000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 

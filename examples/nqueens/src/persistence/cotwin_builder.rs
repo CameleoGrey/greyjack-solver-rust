@@ -34,13 +34,16 @@ pub struct CotwinBuilder {
     use_incremental_score_calculation: bool,
 }
 
-impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
- {
-    fn new(use_incremental_score_calculation: bool) -> Self {
+impl CotwinBuilder {
+    pub fn new(use_incremental_score_calculation: bool) -> Self {
         Self {
             use_incremental_score_calculation: use_incremental_score_calculation,
         }
     }
+}
+
+impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
+ {
 
     fn build_cotwin(&self, domain_model: ChessBoard, is_already_initialized: bool) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, SimpleScore> {
 

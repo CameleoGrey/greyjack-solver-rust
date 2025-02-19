@@ -143,7 +143,6 @@ impl Mover {
         return (group_ids, group_name, current_change_count);
     }
 
-    #[inline]
     pub fn change_move(
         &mut self, 
         candidate: &Array1<f64>, 
@@ -178,7 +177,6 @@ impl Mover {
         }
     }
 
-    #[inline]
     pub fn swap_move(
         &mut self, candidate: 
         &Array1<f64>, 
@@ -218,7 +216,6 @@ impl Mover {
         }
     }
 
-    #[inline]
     pub fn swap_edges_move(
         &mut self, 
         candidate: &Array1<f64>, 
@@ -281,7 +278,6 @@ impl Mover {
         }
     }
 
-    #[inline]
     pub fn scramble_move(
         &mut self, 
         candidate: &Array1<f64>, 
@@ -320,8 +316,6 @@ impl Mover {
         }
     }
 
-
-    #[inline]
     pub fn insertion_move(
         &mut self, 
         candidate: &Array1<f64>, 
@@ -381,7 +375,6 @@ impl Mover {
         }
     }
 
-    #[inline]
     pub fn inverse_move(
         &mut self, 
         candidate: &Array1<f64>, 
@@ -427,5 +420,4 @@ impl Mover {
             return (Some(changed_candidate), Some(changed_columns), None);
         }
     }
-
 }
