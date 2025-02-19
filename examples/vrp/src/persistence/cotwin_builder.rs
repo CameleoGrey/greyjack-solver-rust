@@ -8,7 +8,7 @@ use greyjack::score_calculation::score_calculators::score_calculator_variants::S
 use greyjack::score_calculation::scores::HardMediumSoftScore;
 use greyjack::variables::GJInteger;
 use polars::frame::DataFrame;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use polars::datatypes::AnyValue;
 
 
@@ -42,11 +42,19 @@ pub enum UtilityObjectVariants {
 #[derive(Clone)]
 pub struct CotwinBuilder {
     use_incremental_score_calculation: bool,
+    use_greed_init: bool,
 }
 
 impl CotwinBuilder {
 
-    fn build_problem_fact_customers<'a>(domain: &VehicleRoutingPlan) -> Vec<EntityVariants<'a>> {
+    pub fn new(use_incremental_score_calculation: bool, use_greed_init: bool) -> Self {
+        Self {
+            use_incremental_score_calculation: use_incremental_score_calculation,
+            use_greed_init: use_greed_init,
+        }
+    }
+
+    fn build_problem_fact_customers<'a>(&self, domain: &VehicleRoutingPlan) -> Vec<EntityVariants<'a>> {
 
         let customers_vec = &domain.customers_vec;
         let n_customers = customers_vec.len();
@@ -70,7 +78,7 @@ impl CotwinBuilder {
         return problem_fact_customers;
     }
 
-    fn build_problem_fact_vehicles<'a>(domain: &VehicleRoutingPlan) -> Vec<EntityVariants<'a>> {
+    fn build_problem_fact_vehicles<'a>(&self, domain: &VehicleRoutingPlan) -> Vec<EntityVariants<'a>> {
 
         let mut problem_fact_vehicles: Vec<EntityVariants<'a>> = Vec::new();
         for (i, domain_vehicle) in domain.vehicles.iter().enumerate() {
@@ -86,15 +94,14 @@ impl CotwinBuilder {
         return problem_fact_vehicles;
     }
     
-    fn build_planning_stops<'a>(domain: &VehicleRoutingPlan, is_already_initialized: bool) -> Vec<EntityVariants<'a>> {
+    fn build_planning_stops<'a>(&self, domain: &VehicleRoutingPlan, is_already_initialized: bool) -> Vec<EntityVariants<'a>> {
 
         let n_depots = domain.depot_vec.len();
         let n_locations = domain.customers_vec.len();
         let k_vehicles = domain.vehicles.len();
         let mut planning_stops_vec: Vec<EntityVariants<'a>> = Vec::new();
 
-        let mut initial_vehicle_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
-        let mut initial_customer_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
+        let (mut initial_vehicle_ids, mut initial_customer_ids) = Self::build_default_initial_ids(domain);
         let mut is_frozen: Vec<bool> = vec![false; n_locations - n_depots];
 
         if is_already_initialized {
@@ -108,6 +115,8 @@ impl CotwinBuilder {
                     i += 1;
                 }
             }
+        } else if self.use_greed_init {
+            (initial_vehicle_ids, initial_customer_ids) = Self::build_greed_initial_ids(domain);
         }
 
         for i in n_depots..n_locations {
@@ -129,6 +138,121 @@ impl CotwinBuilder {
         }
 
         return planning_stops_vec;
+    }
+
+    fn build_default_initial_ids(domain: &VehicleRoutingPlan) -> (Vec<Option<i64>>, Vec<Option<i64>>) {
+
+        let n_depots = domain.depot_vec.len();
+        let n_locations = domain.customers_vec.len();
+
+        let initial_vehicle_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
+        let initial_customer_ids: Vec<Option<i64>> = vec![None; n_locations - n_depots];
+
+        return (initial_vehicle_ids, initial_customer_ids);
+    }
+
+    fn build_greed_initial_ids(domain: &VehicleRoutingPlan) -> (Vec<Option<i64>>, Vec<Option<i64>>) {
+
+        // Just iterate over vehicles and fill them by customers until vehicle will full (cumulative customers demand <= vehicle capacity).
+        // Filling a vehicle by customers is made by adding nearest neighbour to previous added customer (like in TSP).
+        // There are problems with time accounting, but despite this, gives much better results and much faster convergence than random init.
+
+        let n_depots = domain.depot_vec.len();
+        let n_locations = domain.customers_vec.len();
+        let distance_matrix = &domain.distance_matrix;
+
+        let mut initial_vehicle_ids: Vec<Option<i64>> = Vec::new();
+        let mut initial_customer_ids: Vec<Option<i64>> = Vec::new();
+
+        let mut remaining_customers: HashSet<usize> = domain.customers_vec[n_depots..].iter().map(|customer| customer.vec_id).collect();
+        for (k, vehicle) in domain.vehicles.iter().enumerate() {
+            
+            if remaining_customers.len() <= 0 {
+                break;
+            }
+
+            let vehicle_depot_id = vehicle.depot_vec_id;
+            let vehicle_capacity = vehicle.capacity;
+            let mut collected_demand: u64 = 0;
+            let mut vehicle_stops: Vec<usize> = Vec::new();
+            /*let work_day_start: u64 = vehicle.work_day_start;
+            let work_day_end: u64 = vehicle.work_day_end;
+            let mut current_arrival_time = work_day_start;*/
+
+            let mut stop_id: usize = 0;
+            while (collected_demand < vehicle_capacity) && (remaining_customers.len() > 0) {
+                let previous_stop_id;
+                if vehicle_stops.len() == 0 {
+                    previous_stop_id = vehicle_depot_id;
+                } else {
+                    previous_stop_id = vehicle_stops[stop_id-1];
+                }
+    
+                let mut best_distance = f64::MAX;
+                let mut best_candidate: usize = 999999999;
+                //let mut found_acceptable_candidate = false;
+                for candidate_stop_id in &remaining_customers {
+
+                    /*let customer_i_start = domain.customers_vec[*candidate_stop_id].time_window_start;
+                    let customer_i_end = domain.customers_vec[*candidate_stop_id].time_window_end;
+                    let customer_i_service_time = domain.customers_vec[*candidate_stop_id].service_time;
+                    let arrival_time_to_candidate = std::cmp::max(current_arrival_time, customer_i_start);
+                    if arrival_time_to_candidate > customer_i_end + customer_i_service_time {
+                        continue;
+                    }
+                    if arrival_time_to_candidate + customer_i_service_time > work_day_end {
+                        continue;
+                    }*/
+
+                    let current_distance = distance_matrix[previous_stop_id][*candidate_stop_id];
+                    if current_distance < best_distance {
+                        //found_acceptable_candidate = true;
+                        best_distance = current_distance;
+                        best_candidate = *candidate_stop_id;
+
+                        /*let best_candidate_start = domain.customers_vec[best_candidate].time_window_start;
+                        let best_candidate_service_time = domain.customers_vec[best_candidate].service_time;
+                        current_arrival_time = std::cmp::max(current_arrival_time, best_candidate_start);
+                        current_arrival_time += best_candidate_service_time;*/
+                    }
+                }
+
+                /*if found_acceptable_candidate == false {
+                    break;
+                }*/
+
+                let best_candidate_demand = domain.customers_vec[best_candidate].demand;
+                if collected_demand + best_candidate_demand <= vehicle_capacity {
+                    collected_demand += best_candidate_demand;
+                    vehicle_stops.push(best_candidate);
+                    remaining_customers.remove(&best_candidate);
+                } else {
+                    break;
+                }
+
+                stop_id += 1;
+            }
+
+            let mut vehicle_ids: Vec<Option<i64>> = vec![Some(k as i64); vehicle_stops.len()];
+            let mut vehicle_stops: Vec<Option<i64>> = vehicle_stops.iter().map(|customer_id| Some(*customer_id as i64)).collect();
+
+            initial_vehicle_ids.append(&mut vehicle_ids);
+            initial_customer_ids.append(&mut vehicle_stops);
+        }
+
+        // Greed init is an approximation way to fill vehicles. 
+        // Probably, not all customers will fit to vehicles by this approach.
+        let needfull_init_count = n_locations - n_depots;
+        if initial_customer_ids.len() < needfull_init_count {
+            let delta_count = needfull_init_count - initial_customer_ids.len();
+            (0..delta_count).for_each(|_| {
+                initial_vehicle_ids.push(None);
+                initial_customer_ids.push(None);
+            });
+        }
+
+        return (initial_vehicle_ids, initial_customer_ids);
+        
     }
 
     fn build_utility_customers_info(domain: &VehicleRoutingPlan) -> Vec<Customer> {
@@ -153,18 +277,12 @@ impl CotwinBuilder {
 
 impl<'a> CotwinBuilderTrait<VehicleRoutingPlan, EntityVariants<'a>, UtilityObjectVariants, HardMediumSoftScore> for CotwinBuilder {
 
-    fn new(use_incremental_score_calculation: bool) -> Self {
-        Self {
-            use_incremental_score_calculation: use_incremental_score_calculation
-        }
-    }
-
     fn build_cotwin(&self, domain: VehicleRoutingPlan, is_already_initialized: bool) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, HardMediumSoftScore> {
         
         let mut cotwin = Cotwin::new();
-        cotwin.add_problem_facts("vehicles".to_string(), Self::build_problem_fact_vehicles(&domain));
-        cotwin.add_problem_facts("customers".to_string(), Self::build_problem_fact_customers(&domain));
-        cotwin.add_planning_entities("planning_stops".to_string(), Self::build_planning_stops(&domain, is_already_initialized));
+        cotwin.add_problem_facts("vehicles".to_string(), self.build_problem_fact_vehicles(&domain));
+        cotwin.add_problem_facts("customers".to_string(), self.build_problem_fact_customers(&domain));
+        cotwin.add_planning_entities("planning_stops".to_string(), self.build_planning_stops(&domain, is_already_initialized));
 
         if self.use_incremental_score_calculation {
             let mut score_calculator = VRPIncrementalScoreCalculator::new();
