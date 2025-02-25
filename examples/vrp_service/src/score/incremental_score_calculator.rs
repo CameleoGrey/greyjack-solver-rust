@@ -57,13 +57,14 @@ impl VRPIncrementalScoreCalculator {
         path_stops_deltas_df
         .partition_by(["sample_id"], false).unwrap()
         .iter().map(|sample_df| {
+
+            let mut sample_vehicle_ids = candidate_vehicle_ids.clone();
+            let mut sample_customer_ids = candidate_customer_ids.clone();
+            let mut sum_trip_demands = null_trip_demands.clone();
             let delta_row_ids: Vec<usize> = sample_df["candidate_df_row_id"].u64().unwrap().to_vec().iter().map(|id| id.unwrap() as usize).collect();
             let vehicle_delta_ids: Vec<usize> = sample_df["vehicle_id"].i64().unwrap().to_vec().iter().map(|id| id.unwrap() as usize).collect();
             let customer_delta_ids: Vec<usize> = sample_df["customer_id"].i64().unwrap().to_vec().iter().map(|id| id.unwrap() as usize).collect();
             
-            let mut sample_vehicle_ids = candidate_vehicle_ids.clone();
-            let mut sample_customer_ids = candidate_customer_ids.clone();
-            let mut sum_trip_demands = null_trip_demands.clone();
             delta_row_ids.iter()
             .zip(vehicle_delta_ids.iter())
             .zip(customer_delta_ids.iter())
@@ -118,8 +119,8 @@ impl VRPIncrementalScoreCalculator {
                             let customer_i_end = customers_info[vehicle_stops[v_id][i]].time_window_end;
                             let customer_i_service_time = customers_info[vehicle_stops[v_id][i]].service_time;
                             current_arrival_time = std::cmp::max(current_arrival_time, customer_i_start);
-                            if current_arrival_time + customer_i_service_time > customer_i_end {
-                                *current_time_penalty += ((current_arrival_time + customer_i_service_time) - customer_i_end) as f64;
+                            if current_arrival_time > customer_i_end + customer_i_service_time {
+                                *current_time_penalty += (current_arrival_time - (customer_i_end + customer_i_service_time)) as f64;
                             }
                             current_arrival_time += customer_i_service_time;
                         }
@@ -133,8 +134,6 @@ impl VRPIncrementalScoreCalculator {
             let sum_distance: f64 = vehicle_distances.iter().sum();
             let sum_time_penalty: f64 = vehicle_time_penalties.iter().sum();
 
-            // use (sum_time_penalty + 10000.0 * sum_distance) instead sum_time_penalty as medium_score 
-            // to get much better distance by the cost of possible some late arrivals
             HardMediumSoftScore::new(unique_stops_penalty + capacity_penalty as f64, sum_time_penalty, sum_distance)
 
         }).collect();

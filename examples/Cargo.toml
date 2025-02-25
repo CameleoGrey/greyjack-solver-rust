@@ -3,5 +3,6 @@ resolver = "1"
 members = [
     "nqueens", 
     "tsp", 
-    "vrp",
+    "vrp", 
+    "vrp_service",
 ]

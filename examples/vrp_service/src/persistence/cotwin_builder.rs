@@ -31,7 +31,6 @@ impl<'a> CotwinEntityTrait for EntityVariants<'a> {
 pub enum UtilityObjectVariants {
     DistanceMatrix(Vec<Vec<f64>>),
     DataFrame(DataFrame),
-    SomeF64(f64),
     
     // for incremental score calculator only to avoid joins
     VehiclesInfo(Vec<Vehicle>),

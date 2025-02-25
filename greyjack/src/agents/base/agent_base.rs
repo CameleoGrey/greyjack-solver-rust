@@ -435,19 +435,34 @@ where
     fn update_global_top(&mut self) {
         self.is_global_top_updated = false;
         let mut global_top_individual = self.global_top_individual.lock().unwrap();
-            let mut global_top_json = self.global_top_json.lock().unwrap();
+        let mut global_top_json = self.global_top_json.lock().unwrap();
+        //println!("{:?}", *global_top_individual);
+        if self.agent_top_individual.score < global_top_individual.score {
+            *global_top_individual = self.agent_top_individual.clone();
+            *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
+            self.is_global_top_updated = true;
+
             //println!("{:?}", *global_top_individual);
-            if self.agent_top_individual.score < global_top_individual.score {
-                *global_top_individual = self.agent_top_individual.clone();
-                *global_top_json = self.convert_to_json(self.agent_top_individual.clone());
-                self.is_global_top_updated = true;
 
-                //println!("{:?}", *global_top_individual);
+            if self.observers_count > 0 {
+                self.notify_observers(global_top_json.clone());
+            }
+        }
 
-                if self.observers_count > 0 {
-                    self.notify_observers(global_top_json.clone());
+        // Frequent migration works bad for LateAcceptance, rare migration gives a small improvement.
+        // But sharing new global works good.
+        match &mut self.metaheuristic_base {
+            MetaheuristicsBasesVariants::LAB(la) => {
+                if global_top_individual.score < self.agent_top_individual.score {
+                    la.late_scores.push_front(self.population[0].score.clone());
+                    if la.late_scores.len() > la.late_acceptance_size {
+                        la.late_scores.pop_back();
+                    }
+                    self.population[0] = global_top_individual.clone();
                 }
             }
+            _ => (),
+        }
     }
 
     pub fn log_solving_info(&self) {

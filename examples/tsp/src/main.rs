@@ -43,10 +43,11 @@ fn main() {
     //let termination_strategy = StL(StepsLimit::new(100));
     let termination_strategy = SNI(ScoreNoImprovement::new(60*1000));
     
-    // initialize by unique stops inside cotwin_builder + using only swap variation moves during solving 
-    let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 1, termination_strategy));
+    // initialize by unique stops inside cotwin_builder + using only swap variation moves during solving
+    let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(1024, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), None, 0.00001, 10, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(32, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10000, termination_strategy));
 
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();
