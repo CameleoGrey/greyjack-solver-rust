@@ -19,7 +19,7 @@ use crate::observers_examples::NQueensObserver;
 
 fn main() {
 
-    let domain_builder = DomainBuilder::new(5000, 45);
+    let domain_builder = DomainBuilder::new(10000, 45);
     let cotwin_builder = CotwinBuilder::new(true);
     //println!("{}", domain_builder);
 

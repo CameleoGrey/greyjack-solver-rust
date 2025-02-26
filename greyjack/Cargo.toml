@@ -1,7 +1,20 @@
 [package]
 name = "greyjack"
-version = "0.1.0"
 edition = "2021"
+version = "0.4.5"
+authors = ["CameleoGrey (Egor Chnegov) <cameleogrey@yandex.ru>"]
+repository = "https://github.com/CameleoGrey/greyjack-solver-rust/"
+documentation = "https://github.com/CameleoGrey/greyjack-solver-rust/"
+description = "Rust version of GreyJack Solver for constraint continuous, integer, mixed integer optimization problems"
+license = "MIT OR Apache-2.0"
+keywords = ["greyjack", "solver", "optimization", "metaheuristic", "polars"]
+categories = [
+    "mathematics",
+	"science",
+    "algorithms",
+    "data-structures",
+	"web-programming"
+]
 
 [dependencies]
 threadpool = "1.8.1"

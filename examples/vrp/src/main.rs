@@ -23,7 +23,7 @@ fn main() {
     // 1-depot datasets (plain CVRP)
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n50-k10.vrp"]);
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n500-k20.vrp"]);
-    file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3
+    file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3; RoutingModel: from 67.3 to 74 (depends on time) 
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n2750-k55.vrp"]);
     // multidepot datasets
     //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d2-n50-k10.vrp"]);

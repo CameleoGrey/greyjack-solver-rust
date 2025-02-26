@@ -1215,7 +1215,7 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
 name = "greyjack"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "nqueens"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "greyjack",
  "ndarray",
@@ -3937,7 +3937,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tsp"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "greyjack",
  "ndarray",
@@ -4057,7 +4057,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vrp"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "greyjack",
  "ndarray",
