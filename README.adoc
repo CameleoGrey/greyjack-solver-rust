@@ -16,7 +16,7 @@ There are 2 editions of GreyJack Solver:
 
 === Key Features of GreyJack Solver (Rust version)
 
-- **Great comfortability, expressiveness and flexibility** Thanks to Polars you can express almost all ideas of solutions for almost any problem. And if you need, you can describe some parts of constraints by plain Rust.
+- **Great comfortability, expressiveness and flexibility** Thanks to Polars you can express almost all ideas of solutions for almost any problem (that can be described in terms of objects). And if you need, you can describe some parts of constraints by plain Rust.
 - **Universality** Supports multiple types of constraint problems (continuous, integer, mixed-integer).
 - **Nearly linear horizontal scaling** Multi-threaded solving organized as collective work of individual agents (island computation model for all algorithms), which are sharing the results with neighbours during solving. It gives nearly linear horizontal scaling, increases quality and speed of solving (depends on agents settings and problem).
 - **Supporting of population and local search algorithms** GreyJack currently implements GeneticAlgorithm, TabuSearch, LateAcceptance.
@@ -34,12 +34,12 @@ cargo add greyjack
 
 == Roadmap
 
-- Implement effective Python version (have some good ideas how to achieve it after working on Rust version)
+- Implement effective Python edition
 - Composite termination criterion (for example: solving limit minutes N AND score not improving M seconds)
 - Add more examples: Job-Shop, Pickup&Delivery, some continuous and MIP tasks, scheduling, etc
 - SimulatedAnnealing
-- Modern variations (modifications) of LSHADE (Differential evolution algorithms often appear in articles as sota approaches)
-- CMA, probably its modern variants, adaptations for tasks with integer and categorical variables (often appears in articles as sota approach)
+- Modern variations (modifications) of LSHADE
+- CMA (probably its modern variants, adaptations for tasks with integer and categorical variables)
 - Multi-level score
 - Custom moves support
 - Try to impove incremental (pseudo-incremental) score calculation mechanism (caching, no clonning, etc)
