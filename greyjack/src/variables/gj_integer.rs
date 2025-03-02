@@ -65,19 +65,7 @@ impl GJInteger {
     }
 
     pub fn inverse_transform(&self, value: f64) -> i64 {
-
-        let mut fixed_value = self.fix(value);
-        let x_floor = f64::floor(fixed_value);
-        let x_ceil = f64::ceil(fixed_value);
-        if (fixed_value - x_floor).abs() < (x_ceil - fixed_value).abs() {
-            fixed_value = x_floor
-        } else {
-            fixed_value = x_ceil
-        }
-        let fixed_value = fixed_value as i64;
-
-
-        return fixed_value;
+        return self.fix(value) as i64;
     }
 
     pub fn fix(&self, value: f64) -> f64 {

@@ -48,7 +48,7 @@ fn main() {
     //let termination_strategy = TSL(TimeSpentLimit::new(60*60*1000));
     let termination_strategy = SNI(ScoreNoImprovement::new(60*1000));
     let agent_builder = TS(TabuSearch::new(128, 0.2, None, None, 10, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, None, 10000, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(128, 0.2, None, None, 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
     
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
