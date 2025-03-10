@@ -8,8 +8,6 @@ use crate::score_calculation::score_requesters::VariablesManager;
 use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
-use ndarray::Array1;
-use ndarray_rand::RandomExt;
 use std::ops::AddAssign;
 use std::fmt::Debug;
 
@@ -94,7 +92,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
             variables_manager: &VariablesManager
-        ) -> Vec<Array1<f64>> {
+        ) -> Vec<Vec<f64>> {
 
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
@@ -120,7 +118,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         population: &mut Vec<Individual<ScoreType>>, 
         current_top_individual: &Individual<ScoreType>,
         variables_manager: &VariablesManager
-    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+    ) -> (Vec<f64>, Vec<Vec<(usize, f64)>>) {
 
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
@@ -190,7 +188,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     fn build_updated_population_incremental(
             &mut self, 
             current_population: &Vec<Individual<ScoreType>>, 
-            sample: &mut Array1<f64>,
+            sample: &mut Vec<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
         ) -> Vec<Individual<ScoreType>> {

@@ -1,6 +1,4 @@
 
-
-use ndarray::Array1;
 use std::fmt::Debug;
 use std::ops::AddAssign;
 use std::cmp::Ordering;
@@ -9,13 +7,13 @@ use crate::score_calculation::scores::ScoreTrait;
 #[derive(Debug, Clone)]
 pub struct Individual<ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
-    pub variable_values: Array1<f64>,
+    pub variable_values: Vec<f64>,
     pub score: ScoreType
 }
 
 impl<ScoreType> Individual<ScoreType>
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
-    pub fn new(variable_values: Array1<f64>, score: ScoreType) -> Self {
+    pub fn new(variable_values: Vec<f64>, score: ScoreType) -> Self {
         Self {
             variable_values: variable_values,
             score: score

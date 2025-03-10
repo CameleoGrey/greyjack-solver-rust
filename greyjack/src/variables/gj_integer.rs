@@ -19,8 +19,7 @@ pub struct GJInteger {
 }
 
 impl GJInteger {
-    pub fn new(name: &str, initial_value: Option<i64>, 
-        lower_bound: i64, upper_bound: i64, frozen: bool, semantic_groups: Option<Vec<String>>) -> Self {
+    pub fn new(initial_value: Option<i64>, lower_bound: i64, upper_bound: i64, frozen: bool, semantic_groups: Option<Vec<String>>) -> Self {
             
             let normal_distribution;
             match initial_value {
@@ -45,7 +44,7 @@ impl GJInteger {
             }
 
             GJInteger {
-                name: name.to_string(),
+                name: "".to_string(),
                 initial_value: casted_initial_value,
                 lower_bound: lower_bound as f64,
                 upper_bound: upper_bound as f64,
@@ -153,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_frozen() {
-        let mut x = GJInteger::new("x", Some(1), -1, 1, true, None);
+        let mut x = GJInteger::new( Some(1), -1, 1, true, None);
         
         let initial_value = x.get_initial_value();
         assert_eq!(initial_value, 1.0);
@@ -161,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_unfrozen() {
-        let mut x = GJInteger::new("x", Some(1000), -10000, 10000, false, None);
+        let mut x = GJInteger::new( Some(1000), -10000, 10000, false, None);
         
         let initial_value = x.get_initial_value();
         assert_ne!(initial_value, 1000.0);
@@ -169,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_fix_value() {
-        let x = GJInteger::new("x", Some(1), -1, 1, false, None);
+        let x = GJInteger::new( Some(1), -1, 1, false, None);
         
         let too_little_value: f64 = -100.0;
         let fixed_value = x.fix(too_little_value);
@@ -182,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_inverse_transform() {
-        let x = GJInteger::new("x", Some(1), -10, 10, false, None);
+        let x = GJInteger::new( Some(1), -10, 10, false, None);
         
         let x_to_floor = 4.4;
         let x_to_floor = x.inverse_transform(x_to_floor);

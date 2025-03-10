@@ -69,7 +69,7 @@ impl CotwinBuilder {
                 CotStop {
                 stop_id: CotwinValueTypes::PAV(AnyValue::UInt64(i as u64)),
                 //init: Some((i+1) as i64)
-                locations_vec_id: CotwinValueTypes::GJI(GJInteger::new(&format!("stop_{}_id", i), initial_stop_ids[i], 1, (n_locations-1) as i64, false, None))
+                locations_vec_id: CotwinValueTypes::GJI(GJInteger::new( initial_stop_ids[i], 1, (n_locations-1) as i64, false, None))
             });
 
             planning_stops_vec.push(current_stop);

@@ -6,11 +6,10 @@ workspace = "../"
 
 [dependencies]
 greyjack = {path = "../../greyjack"}
-polars = { version = "0.45.1", features = ["lazy", "ndarray", "partition_by", "abs"] }
+polars = { version = "0.46.0", features = ["lazy", "ndarray", "partition_by", "abs"] }
 regex = "1.11.1"
-ndarray = "0.16.1"
 serde_json = "1.0.137"
-serde = "1.0.218"
+serde = "1.0.219"
 rayon = "1.10.0"
 rocket = "0.5.1"
 lapin = "2.5.0"

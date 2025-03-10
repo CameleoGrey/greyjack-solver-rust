@@ -18,7 +18,7 @@ pub struct GJFloat {
 }
 
 impl GJFloat {
-    pub fn new(name: &str, initial_value: Option<f64>, 
+    pub fn new(initial_value: Option<f64>, 
         lower_bound: f64, upper_bound: f64, frozen: bool, semantic_groups: Option<Vec<String>>) -> Self {
             
             let normal_distribution;
@@ -38,7 +38,7 @@ impl GJFloat {
             }
 
             GJFloat {
-                name: name.to_string(),
+                name: "".to_string(),
                 initial_value: initial_value,
                 lower_bound: lower_bound,
                 upper_bound: upper_bound,
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_frozen() {
-        let mut x = GJFloat::new("x", Some(1.0), -1.0, 1.0, true, None);
+        let mut x = GJFloat::new(Some(1.0), -1.0, 1.0, true, None);
         
         let initial_value = x.get_initial_value();
         assert_eq!(initial_value, 1.0);
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_unfrozen() {
-        let mut x = GJFloat::new("x", Some(1000.0), -10000.0, 10000.0, false, None);
+        let mut x = GJFloat::new( Some(1000.0), -10000.0, 10000.0, false, None);
         
         let initial_value = x.get_initial_value();
         assert_ne!(initial_value, 1000.0);
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_gp_float_var_fix_value() {
-        let mut x = GJFloat::new("x", Some(1.0), -1.0, 1.0, false, None);
+        let mut x = GJFloat::new(Some(1.0), -1.0, 1.0, false, None);
         
         let too_little_value: f64 = -100.0;
         let fixed_value = x.fix(too_little_value);

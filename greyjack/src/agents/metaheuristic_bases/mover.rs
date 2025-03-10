@@ -4,8 +4,6 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use crate::score_calculation::score_requesters::VariablesManager;
 use crate::utils;
-use ndarray::Array1;
-use ndarray_rand::RandomExt;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
@@ -97,9 +95,9 @@ impl Mover {
         return random_ids;
     }
 
-    pub fn do_move(&mut self, candidate: &Array1<f64>, variables_manager: &VariablesManager, incremental: bool) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    pub fn do_move(&mut self, candidate: &Vec<f64>, variables_manager: &VariablesManager, incremental: bool) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
-        let changed_candidate: Option<Array1<f64>>;
+        let changed_candidate: Option<Vec<f64>>;
         let changed_columns: Option<Vec<usize>>;
         let deltas: Option<Vec<f64>>;
 
@@ -136,8 +134,8 @@ impl Mover {
     
         let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
         let group_mutation_rate = self.group_mutation_rates_map[group_name];
-        let random_values = Array1::random(variables_manager.variables_count, Uniform::new_inclusive(0.0, 1.0));
-        let crossover_mask: Array1<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
+        let random_values = vec![Uniform::new_inclusive(0.0, 1.0).sample(&mut StdRng::from_entropy()); variables_manager.variables_count];
+        let crossover_mask: Vec<bool> = random_values.iter().map(|x| x < &group_mutation_rate).collect();
         let current_change_count = crossover_mask.iter().filter(|x| **x == true).count();
 
         return (group_ids, group_name, current_change_count);
@@ -145,10 +143,10 @@ impl Mover {
 
     pub fn change_move(
         &mut self, 
-        candidate: &Array1<f64>, 
+        candidate: &Vec<f64>, 
         variables_manager: &VariablesManager,
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
         
         let (group_ids, group_name, mut current_change_count) = self.get_necessary_info_for_move(variables_manager);
 
@@ -179,10 +177,10 @@ impl Mover {
 
     pub fn swap_move(
         &mut self, candidate: 
-        &Array1<f64>, 
+        &Vec<f64>, 
         variables_manager: &VariablesManager, 
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let (group_ids, group_name, mut current_change_count) = self.get_necessary_info_for_move(variables_manager);
 
@@ -218,10 +216,10 @@ impl Mover {
 
     pub fn swap_edges_move(
         &mut self, 
-        candidate: &Array1<f64>, 
+        candidate: &Vec<f64>, 
         variables_manager: &VariablesManager, 
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let (group_ids, group_name, mut current_change_count) = self.get_necessary_info_for_move(variables_manager);
 
@@ -280,10 +278,10 @@ impl Mover {
 
     pub fn scramble_move(
         &mut self, 
-        candidate: &Array1<f64>, 
+        candidate: &Vec<f64>, 
         variables_manager: &VariablesManager, 
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let current_change_count = Uniform::new_inclusive(3, 6).sample(&mut StdRng::from_entropy());
         let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
@@ -318,10 +316,10 @@ impl Mover {
 
     pub fn insertion_move(
         &mut self, 
-        candidate: &Array1<f64>, 
+        candidate: &Vec<f64>, 
         variables_manager: &VariablesManager, 
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
         let current_change_count = 2;
@@ -377,10 +375,10 @@ impl Mover {
 
     pub fn inverse_move(
         &mut self, 
-        candidate: &Array1<f64>, 
+        candidate: &Vec<f64>, 
         variables_manager: &VariablesManager, 
         incremental: bool,
-    ) -> (Option<Array1<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
+    ) -> (Option<Vec<f64>>, Option<Vec<usize>>, Option<Vec<f64>>) {
 
         let (group_ids, group_name) = variables_manager.get_random_semantic_group_ids();
         let current_change_count = 2;

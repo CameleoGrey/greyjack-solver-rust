@@ -11,7 +11,6 @@ use crate::score_calculation::score_requesters::VariablesManager;
 use std::ops::AddAssign;
 use std:: collections::HashMap;
 use std::string::String;
-use ndarray::Array1;
 use polars::prelude::*;
 use rayon::prelude::*;
 
@@ -334,7 +333,7 @@ where
 
         }
 
-        pub fn request_score_plain<'a>(&mut self, samples: &Vec<Array1<f64>>) -> Vec<ScoreType>{
+        pub fn request_score_plain<'a>(&mut self, samples: &Vec<Vec<f64>>) -> Vec<ScoreType>{
 
             //let start_time = chrono::Utc::now().timestamp_millis();
             let candidates:Vec<Vec<(AnyValue<'a>)>> = samples.iter().map(|x| self.variables_manager.inverse_transform_variables(&x)).collect();
@@ -441,7 +440,7 @@ where
             return delta_dfs;
         }
 
-        pub fn request_score_incremental<'a>(&mut self, sample: &Array1<f64>, deltas: &Vec<Vec<(usize, f64)>>) -> Vec<ScoreType> {
+        pub fn request_score_incremental<'a>(&mut self, sample: &Vec<f64>, deltas: &Vec<Vec<(usize, f64)>>) -> Vec<ScoreType> {
 
             //let start_time = chrono::Utc::now().timestamp_millis();
             let candidate: Vec<(AnyValue<'a>)> = self.variables_manager.inverse_transform_variables(&sample);
