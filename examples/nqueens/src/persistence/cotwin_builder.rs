@@ -60,8 +60,7 @@ impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariant
             let column_id = CotwinValueTypes::PAV(AnyValue::UInt64(i));
             // initial_value: Some(queens[i as usize].row.row_id as i64)
             let planning_row_id = CotwinValueTypes::GJI(
-                GJInteger::new(&format!("queen_{}_row_id", i), 
-                Some(queens[i as usize].row.row_id as i64), 
+                GJInteger::new( Some(queens[i as usize].row.row_id as i64), 
                 0, (n-1) as i64, false, None)
             );
 

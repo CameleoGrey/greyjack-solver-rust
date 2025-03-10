@@ -6,8 +6,6 @@ use crate::score_calculation::score_requesters::VariablesManager;
 use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
-use ndarray::Array1;
-use ndarray_rand::RandomExt;
 use std::ops::AddAssign;
 use std::fmt::Debug;
 
@@ -104,17 +102,17 @@ impl GeneticAlgorithmBase {
         return p_worst;
     }
 
-    fn cross(&mut self, candidate_1: Array1<f64>, candidate_2: Array1<f64>) -> (Array1<f64>, Array1<f64>) {
+    fn cross(&mut self, candidate_1: Vec<f64>, candidate_2: Vec<f64>) -> (Vec<f64>, Vec<f64>) {
 
         let variables_count = candidate_1.len();
-        let mut weights = Array1::random(variables_count, Uniform::new_inclusive(0.0, 1.0));
+        let mut weights = vec![Uniform::new_inclusive(0.0, 1.0).sample(&mut StdRng::from_entropy()); variables_count];
 
         match &self.discrete_ids {
             None => (),
             Some(discrete_ids) => discrete_ids.into_iter().for_each(|i| weights[*i] = math_utils::rint(weights[*i]))
         }
 
-        let new_candidate_1: Array1<f64> = 
+        let new_candidate_1: Vec<f64> = 
             weights.iter()
             .zip(candidate_1.iter())
             .zip(candidate_2.iter())
@@ -123,7 +121,7 @@ impl GeneticAlgorithmBase {
             })
             .collect();
 
-        let new_candidate_2: Array1<f64> = 
+        let new_candidate_2: Vec<f64> = 
             weights.iter()
             .zip(candidate_1.iter())
             .zip(candidate_2.iter())
@@ -145,7 +143,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
             variables_manager: &VariablesManager
-        ) -> Vec<Array1<f64>> {
+        ) -> Vec<Vec<f64>> {
 
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
@@ -158,7 +156,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         
         population.sort();
 
-        let mut candidates: Vec<Array1<f64>> = Vec::new();
+        let mut candidates: Vec<Vec<f64>> = Vec::new();
         for i in 0..self.half_population_size {
             let mut candidate_1 = self.select_p_best(population).variable_values;
             let mut candidate_2 = self.select_p_best(population).variable_values;
@@ -193,7 +191,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         population: &mut Vec<Individual<ScoreType>>, 
         current_top_individual: &Individual<ScoreType>,
         variables_manager: &VariablesManager
-    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+    ) -> (Vec<f64>, Vec<Vec<(usize, f64)>>) {
         panic!("Incremental candidates sampling is available only for local search approaches (TabuSearch, LateAcceptance, etc).")
     }
 
@@ -217,7 +215,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     fn build_updated_population_incremental(
             &mut self, 
             current_population: &Vec<Individual<ScoreType>>, 
-            sample: &mut Array1<f64>,
+            sample: &mut Vec<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
         ) -> Vec<Individual<ScoreType>> {

@@ -5,8 +5,6 @@ use super::Mover;
 use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
-use ndarray::Array1;
-use ndarray_rand::RandomExt;
 use rand_distr::num_traits::ToPrimitive;
 use std::ops::AddAssign;
 use std::fmt::Debug;
@@ -81,7 +79,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             population: &mut Vec<Individual<ScoreType>>, 
             current_top_individual: &Individual<ScoreType>,
             variables_manager: &VariablesManager
-        ) -> Vec<Array1<f64>> {
+        ) -> Vec<Vec<f64>> {
 
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
@@ -93,7 +91,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         }
 
         let current_best_candidate = population[0].variable_values.clone();
-        let mut candidates: Vec<Array1<f64>> = (0..self.neighbours_count).into_iter().map(|i| {
+        let mut candidates: Vec<Vec<f64>> = (0..self.neighbours_count).into_iter().map(|i| {
             let (changed_candidate, changed_columns, _) = self.mover.do_move(&current_best_candidate, variables_manager, false);
             let mut candidate = changed_candidate.unwrap();
             variables_manager.fix_variables(&mut candidate, changed_columns);
@@ -108,7 +106,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         population: &mut Vec<Individual<ScoreType>>, 
         current_top_individual: &Individual<ScoreType>,
         variables_manager: &VariablesManager
-    ) -> (Array1<f64>, Vec<Vec<(usize, f64)>>) {
+    ) -> (Vec<f64>, Vec<Vec<(usize, f64)>>) {
 
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
@@ -156,7 +154,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     fn build_updated_population_incremental(
             &mut self, 
             current_population: &Vec<Individual<ScoreType>>, 
-            sample: &mut Array1<f64>,
+            sample: &mut Vec<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
         ) -> Vec<Individual<ScoreType>> {

@@ -22,10 +22,9 @@ use std::sync::{Arc, Mutex};
 use std::fmt::{Debug, Display};
 use std::ops::AddAssign;
 use crossbeam_channel::*;
-use ndarray::Array1;
 use chrono::*;
 use polars::datatypes::AnyValue;
-use serde::{Serialize};
+use ::serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 
@@ -84,7 +83,7 @@ where
     ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType> {
 
         // agent_id, round_robin_status_dict and channels will be set by Solver, not by agent 
-        let global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
+        let global_top_individual: Individual<ScoreType> = Individual::new(vec![1.0], ScoreType::get_stub_score());
         let global_top_individual = Arc::new(Mutex::new(global_top_individual));
         Self {
             migration_rate: migration_rate,
@@ -94,7 +93,7 @@ where
             agent_id: 777777777, // setups by Solver
             population_size: population_size,
             population: Vec::new(),
-            agent_top_individual: Individual::new(Array1::default(1), ScoreType::get_stub_score()),
+            agent_top_individual: Individual::new(vec![1.0], ScoreType::get_stub_score()),
             global_top_individual: global_top_individual,
             global_top_json: Arc::new(Mutex::new(Value::Null)),
             is_global_top_updated: false,
@@ -192,7 +191,7 @@ where
 
         match &self.score_requester.cotwin.score_calculator {
             ScoreCalculatorVariants::PSC(psc) => {
-                let mut samples:Vec<Array1<f64>> = Vec::new();
+                let mut samples:Vec<Vec<f64>> = Vec::new();
                 for i in 0..self.population_size {
                     let mut generated_sample = self.score_requester.variables_manager.sample_variables();
                     samples.push(generated_sample);
@@ -276,7 +275,7 @@ where
         let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
             
         //let start_time = chrono::Utc::now().timestamp_millis();
-        let samples: Vec<Array1<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
+        let samples: Vec<Vec<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
         //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
         
         //let start_time = chrono::Utc::now().timestamp_millis();

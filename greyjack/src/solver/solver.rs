@@ -13,7 +13,6 @@ use std::ops::AddAssign;
 use std::fmt::{Debug, Display};
 use std::sync::{Arc, Mutex};
 use crossbeam_channel::*;
-use ndarray::Array1;
 use rayon::prelude::*;
 use std::env;
 use serde::Serialize;
@@ -66,7 +65,7 @@ impl Solver {
         let mut round_robin_status_vec: Vec<AgentStatuses> = Vec::new();
         let mut agents_updates_senders: Vec<Sender<AgentToAgentUpdate<ScoreType>>> = Vec::new();
         let mut agents_updates_receivers: Vec<Receiver<AgentToAgentUpdate<ScoreType>>> = Vec::new();
-        let global_top_individual: Individual<ScoreType> = Individual::new(Array1::from_vec(vec![1.0]), ScoreType::get_stub_score());
+        let global_top_individual: Individual<ScoreType> = Individual::new(vec![1.0], ScoreType::get_stub_score());
         let global_top_individual = Arc::new(Mutex::new(global_top_individual));
         let global_top_json = Arc::new(Mutex::new(Value::Null));
         

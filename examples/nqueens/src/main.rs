@@ -45,7 +45,7 @@ fn main() {
     );
 
     let domain = domain_builder.build_from_solution(&solution);
-    //println!("{}", domain);
+    println!("{}", domain);
 
     println!("done");
 }

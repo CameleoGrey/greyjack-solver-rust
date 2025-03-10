@@ -5,7 +5,6 @@ use greyjack::score_calculation::scores::HardSoftScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::collections::HashMap;
 use polars::prelude::*;
-use ndarray::{Array, Array2};
 
 
 pub struct TSPPlainScoreCalculator {

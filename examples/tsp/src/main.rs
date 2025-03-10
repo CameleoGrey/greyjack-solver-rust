@@ -24,10 +24,10 @@ fn main() {
     //file_path.append(&mut vec!["belgium", "air", "belgium-n50.tsp"]); //optimum: ~12.2; first_fit: ~
     //file_path.append(&mut vec!["cook", "air", "st70.tsp"]);
     //file_path.append(&mut vec!["tsplib", "a280.tsp"]);
-    file_path.append(&mut vec!["cook", "air", "pcb442.tsp"]); //optimum: 50778; first_fit: ~63k
+    //file_path.append(&mut vec!["cook", "air", "pcb442.tsp"]); //optimum: 50778; first_fit: ~63k
     //file_path.append(&mut vec!["cook", "air", "lu980.tsp"]);
     //file_path.append(&mut vec!["belgium", "air", "belgium-n1000.tsp"]);
-    //file_path.append(&mut vec!["other", "air", "usa_tx_2743.tsp"]); //optimum: ~282; first_fit: ~338
+    file_path.append(&mut vec!["other", "air", "usa_tx_2743.tsp"]); //optimum: ~282; first_fit: ~338
     //file_path.append(&mut vec!["belgium", "air", "belgium-n2750.tsp"]);
     //file_path.append(&mut vec!["tsplib", "fnl4461.tsp"]); //optimum: 182566; first_fit: ~230k
     //file_path.append(&mut vec!["cook", "air", "gr9882.tsp"]); //optimum: 300899; first_fit: ~400k

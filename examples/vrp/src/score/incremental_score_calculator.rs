@@ -5,7 +5,6 @@ use greyjack::score_calculation::scores::HardMediumSoftScore;
 use crate::persistence::cotwin_builder::UtilityObjectVariants;
 use std::{collections::HashMap, collections::HashSet};
 use polars::prelude::*;
-use ndarray::{Array, Array2};
 
 
 pub struct VRPIncrementalScoreCalculator {
