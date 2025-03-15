@@ -24,10 +24,10 @@ fn main() {
     //file_path.append(&mut vec!["belgium", "air", "belgium-n50.tsp"]); //optimum: ~12.2; first_fit: ~
     //file_path.append(&mut vec!["cook", "air", "st70.tsp"]);
     //file_path.append(&mut vec!["tsplib", "a280.tsp"]);
-    //file_path.append(&mut vec!["cook", "air", "pcb442.tsp"]); //optimum: 50778; first_fit: ~63k
+    file_path.append(&mut vec!["cook", "air", "pcb442.tsp"]); //optimum: 50778; first_fit: ~63k
     //file_path.append(&mut vec!["cook", "air", "lu980.tsp"]);
     //file_path.append(&mut vec!["belgium", "air", "belgium-n1000.tsp"]);
-    file_path.append(&mut vec!["other", "air", "usa_tx_2743.tsp"]); //optimum: ~282; first_fit: ~338
+    //file_path.append(&mut vec!["other", "air", "usa_tx_2743.tsp"]); //optimum: ~282; first_fit: ~338
     //file_path.append(&mut vec!["belgium", "air", "belgium-n2750.tsp"]);
     //file_path.append(&mut vec!["tsplib", "fnl4461.tsp"]); //optimum: 182566; first_fit: ~230k
     //file_path.append(&mut vec!["cook", "air", "gr9882.tsp"]); //optimum: 300899; first_fit: ~400k
@@ -39,13 +39,12 @@ fn main() {
     let cotwin_builder = CotwinBuilder::new(true, true);
 
     //let termination_strategy = ScL(ScoreLimit::new(HardSoftScore::new(0.0, 0.0)));
-    //let termination_strategy = TSL(TimeSpentLimit::new(60*60*1000));
+    //let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
     //let termination_strategy = StL(StepsLimit::new(100));
-    let termination_strategy = SNI(ScoreNoImprovement::new(60*1000));
+    let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
     
     // initialize by unique stops inside cotwin_builder + using only swap variation moves during solving
-    let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
-    //let agent_builder = TS(TabuSearch::new(1024, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.2, Some(1.0), Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), None, 0.00001, 10, termination_strategy));
 
