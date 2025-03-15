@@ -23,7 +23,7 @@ fn main() {
     // 1-depot datasets (plain CVRP)
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n50-k10.vrp"]);
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n500-k20.vrp"]);
-    file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3; RoutingModel: from 67.3 to 74 (depends on time) 
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3; RoutingModel: from 67.3 to 74 (depends on time) 
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n2750-k55.vrp"]);
     // multidepot datasets
     //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d2-n50-k10.vrp"]);
@@ -32,7 +32,7 @@ fn main() {
     //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d10-n2750-k55.vrp"]);
     // multidepot datasets with timewindow constraint
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d2-n50-k10.vrp"]); //optimum: ~15.98; first_fit: ~27.89
-    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~43.3; first_fit: ~124.884
+    file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~43.3; first_fit: ~124.884
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d8-n1000-k40.vrp"]); //optimum: ~58.1; first_fit: ~154.565
     //has some locations with different coordinates, but with the same name (for example: Antwerpen)
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d10-n2750-k55.vrp"]); //optimum: ~111; first_fit: ~380.9

@@ -126,11 +126,11 @@ impl CotwinBuilder {
                 // init: Some((i % k_vehicles) as i64)
                 vehicle_id: CotwinValueTypes::GJI(GJInteger::new(
                     initial_vehicle_ids[i - n_depots], 0, (k_vehicles-1) as i64, is_frozen[i - n_depots], 
-                    Some(vec!["vehicle_assignment".to_string()]))),
+                    Some(vec!["vehicle_assignment".to_string(), "common".to_string()]))),
                 // init: Some(i as i64)
                 customer_id: CotwinValueTypes::GJI(GJInteger::new(
                     initial_customer_ids[i - n_depots], n_depots as i64, (n_locations-1) as i64, is_frozen[i - n_depots], 
-                    Some(vec!["customer_assignment".to_string()])))
+                    Some(vec!["customer_assignment".to_string(), "common".to_string()])))
             });
 
             planning_stops_vec.push(current_stop);
