@@ -110,7 +110,7 @@ impl DomainBuilderTrait<VehicleRoutingPlan> for DomainBuilder {
         return domain_model;
     }
 
-    fn build_from_solution(&self, solution: &Value) -> VehicleRoutingPlan {
+    fn build_from_solution(&self, solution: &Value, initial_domain: Option<VehicleRoutingPlan>) -> VehicleRoutingPlan {
 
         let mut domain = self.build_domain_from_scratch();
         let solution: (Vec<(String, AnyValue)>, HardMediumSoftScore) = from_value(solution.clone()).unwrap();

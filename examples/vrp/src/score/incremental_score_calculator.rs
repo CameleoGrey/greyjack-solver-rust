@@ -139,8 +139,6 @@ impl VRPIncrementalScoreCalculator {
         }).collect();
 
         return scores;
-
-
     }
 
 

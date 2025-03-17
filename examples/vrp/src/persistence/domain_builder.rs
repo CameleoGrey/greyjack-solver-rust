@@ -89,9 +89,18 @@ impl DomainBuilderTrait<VehicleRoutingPlan> for DomainBuilder {
         return domain_model;
     }
 
-    fn build_from_solution(&self, solution: &Value) -> VehicleRoutingPlan {
+    fn build_from_solution(&self, solution: &Value, initial_domain: Option<VehicleRoutingPlan>) -> VehicleRoutingPlan {
 
-        let mut domain = self.build_domain_from_scratch();
+        let mut domain: VehicleRoutingPlan;
+        match initial_domain {
+            None => domain = self.build_domain_from_scratch(),
+            Some(existing_domain) => {
+                let mut existing_domain = existing_domain;
+                existing_domain.vehicles.iter_mut().for_each(|vehicle| vehicle.customers = Vec::new());
+                domain = existing_domain;
+            }
+        }
+
         let solution: (Vec<(String, AnyValue)>, HardMediumSoftScore) = from_value(solution.clone()).unwrap();
         let solution = solution.0;
 

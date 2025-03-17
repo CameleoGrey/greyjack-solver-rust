@@ -28,6 +28,63 @@ impl TSPIncrementalScoreCalculator {
         return score_calculator;
     }
 
+    fn all_in_one_constraint(
+        planning_entity_dfs: &HashMap<String, DataFrame>, 
+        problem_fact_dfs: &HashMap<String, DataFrame>,
+        delta_dfs: &HashMap<String, DataFrame>,
+        utility_objects: &mut HashMap<String, UtilityObjectVariants>,
+    ) -> Vec<HardSoftScore> {
+
+        /*
+        Pseudo-incremental, fastest.
+        */
+
+        let path_stops_df = planning_entity_dfs["path_stops"].clone();
+        let path_stops_deltas_df = delta_dfs["path_stops"].clone();
+        let distance_matrix: &Vec<Vec<f64>>;
+        match &utility_objects["distance_matrix"] {
+            UtilityObjectVariants::DistanceMatrix(dm) => distance_matrix = &dm,
+            _ => panic!("dragons")
+        }
+
+        let planning_stop_ids: Vec<usize> = path_stops_df["location_vec_id"].i64().unwrap().to_vec().iter().map(|x| x.unwrap() as usize).collect();
+
+        let mut scores: Vec<HardSoftScore> = path_stops_deltas_df
+        .partition_by(["sample_id"], false).unwrap()
+        .iter().enumerate().map(|(i, sample_df)| {
+            let current_loc_ids: Vec<usize> = sample_df["location_vec_id"]
+            .i64().unwrap().to_vec()
+            .iter().map(|loc_id| loc_id.unwrap() as usize)
+            .collect();
+
+            let current_row_ids: Vec<usize> = sample_df["candidate_df_row_id"]
+            .u64().unwrap().to_vec()
+            .iter().map(|row_id| row_id.unwrap() as usize)
+            .collect();
+
+            let mut changed_stops = planning_stop_ids.clone();
+            current_row_ids.iter()
+            .zip(current_loc_ids.iter())
+            .for_each(|(row_id, loc_id)| {
+                changed_stops[*row_id] = *loc_id;
+            });
+
+            //no_duplicating_stops_constraint
+            let sample_unique_location_ids: HashSet<usize> = changed_stops.iter().map(|loc_id| *loc_id).collect();
+            let unique_stops_penalty = (planning_stop_ids.len() - sample_unique_location_ids.len()) as f64;
+            
+            let mut sample_distance = 0.0;
+            let last_id = changed_stops.len() - 1; 
+            sample_distance += distance_matrix[0][changed_stops[0]];
+            sample_distance += distance_matrix[changed_stops[last_id]][0];
+            sample_distance += (1..changed_stops.len()).into_iter().fold(0.0, |interim_distance, i| interim_distance + distance_matrix[changed_stops[i-1]][changed_stops[i]]);
+
+            HardSoftScore::new(unique_stops_penalty, sample_distance)
+        }).collect();
+
+        return scores;
+    }
+
     /*fn build_deltas_map(
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
@@ -304,64 +361,6 @@ impl TSPIncrementalScoreCalculator {
             sample_distance += (1..changed_stops.len()).into_iter().fold(0.0, |interim_distance, i| interim_distance + distance_matrix[changed_stops[i-1]][changed_stops[i]]);
 
             HardSoftScore::new(0.0, sample_distance)
-        }).collect();
-
-        return scores;
-    }
-
-
-    fn all_in_one_constraint(
-        planning_entity_dfs: &HashMap<String, DataFrame>, 
-        problem_fact_dfs: &HashMap<String, DataFrame>,
-        delta_dfs: &HashMap<String, DataFrame>,
-        utility_objects: &mut HashMap<String, UtilityObjectVariants>,
-    ) -> Vec<HardSoftScore> {
-
-        /*
-        Pseudo-incremental, fastest.
-        */
-
-        let path_stops_df = planning_entity_dfs["path_stops"].clone();
-        let path_stops_deltas_df = delta_dfs["path_stops"].clone();
-        let distance_matrix: &Vec<Vec<f64>>;
-        match &utility_objects["distance_matrix"] {
-            UtilityObjectVariants::DistanceMatrix(dm) => distance_matrix = &dm,
-            _ => panic!("dragons")
-        }
-
-        let planning_stop_ids: Vec<usize> = path_stops_df["location_vec_id"].i64().unwrap().to_vec().iter().map(|x| x.unwrap() as usize).collect();
-
-        let mut scores: Vec<HardSoftScore> = path_stops_deltas_df
-        .partition_by(["sample_id"], false).unwrap()
-        .iter().enumerate().map(|(i, sample_df)| {
-            let current_loc_ids: Vec<usize> = sample_df["location_vec_id"]
-            .i64().unwrap().to_vec()
-            .iter().map(|loc_id| loc_id.unwrap() as usize)
-            .collect();
-
-            let current_row_ids: Vec<usize> = sample_df["candidate_df_row_id"]
-            .u64().unwrap().to_vec()
-            .iter().map(|row_id| row_id.unwrap() as usize)
-            .collect();
-
-            let mut changed_stops = planning_stop_ids.clone();
-            current_row_ids.iter()
-            .zip(current_loc_ids.iter())
-            .for_each(|(row_id, loc_id)| {
-                changed_stops[*row_id] = *loc_id;
-            });
-
-            //no_duplicating_stops_constraint
-            let sample_unique_location_ids: HashSet<usize> = changed_stops.iter().map(|loc_id| *loc_id).collect();
-            let unique_stops_penalty = (planning_stop_ids.len() - sample_unique_location_ids.len()) as f64;
-            
-            let mut sample_distance = 0.0;
-            let last_id = changed_stops.len() - 1; 
-            sample_distance += distance_matrix[0][changed_stops[0]];
-            sample_distance += distance_matrix[changed_stops[last_id]][0];
-            sample_distance += (1..changed_stops.len()).into_iter().fold(0.0, |interim_distance, i| interim_distance + distance_matrix[changed_stops[i-1]][changed_stops[i]]);
-
-            HardSoftScore::new(unique_stops_penalty, sample_distance)
         }).collect();
 
         return scores;

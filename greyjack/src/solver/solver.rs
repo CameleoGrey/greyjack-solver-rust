@@ -112,7 +112,7 @@ impl Solver {
                 },
                 Some(isv) => {
                     match isv {
-                        InitialSolutionVariants::CotwinValuesVector(raw_solution) => domain_i = db_i.build_from_solution(&raw_solution),
+                        InitialSolutionVariants::CotwinValuesVector(raw_solution) => domain_i = db_i.build_from_solution(&raw_solution, None),
                         InitialSolutionVariants::DomainObject(existing_domain) => domain_i = db_i.build_from_domain(&existing_domain),
                     }
                 }
