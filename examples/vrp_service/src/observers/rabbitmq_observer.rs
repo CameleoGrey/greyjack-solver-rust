@@ -32,7 +32,7 @@ impl ObserverTrait for RabbitMQObserver {
 
     fn update(&mut self, solution: Value) {
 
-        let domain = self.domain_builder.build_from_solution(&solution);
+        let domain = self.domain_builder.build_from_solution(&solution, None);
         let domain_json = json!(&domain).clone();
 
         let channel = self.solution_sender_channel.clone();

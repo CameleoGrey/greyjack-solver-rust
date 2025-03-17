@@ -45,7 +45,7 @@ impl DomainBuilderTrait<ChessBoard> for DomainBuilder {
         
     }
 
-    fn build_from_solution(&self, solution: &Value) -> ChessBoard {
+    fn build_from_solution(&self, solution: &Value, initial_domain: Option<ChessBoard>) -> ChessBoard {
         let mut domain = self.build_domain_from_scratch();
         let solution: (Vec<(String, AnyValue)>, SimpleScore)  = from_value(solution.clone()).unwrap();
         let solution = solution.0;

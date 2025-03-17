@@ -55,7 +55,7 @@ impl DomainBuilderTrait<TravelSchedule> for DomainBuilder {
 
     }
 
-    fn build_from_solution(&self, solution: &Value) -> TravelSchedule {
+    fn build_from_solution(&self, solution: &Value, initial_domain: Option<TravelSchedule>) -> TravelSchedule {
         let mut domain = self.build_domain_from_scratch();
         let solution: (Vec<(String, AnyValue)>, HardSoftScore)  = from_value(solution.clone()).unwrap();
         let values = solution.0;
