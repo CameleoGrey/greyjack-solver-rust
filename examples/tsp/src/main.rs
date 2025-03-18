@@ -44,7 +44,7 @@ fn main() {
     //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
     
     // initialize by unique stops inside cotwin_builder + using only swap variation moves during solving
-    let agent_builder = TS(TabuSearch::new(128, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.2, true, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), None, 0.00001, 10, termination_strategy));
 
@@ -52,7 +52,7 @@ fn main() {
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();
     let solution = Solver::solve(
         domain_builder.clone(), cotwin_builder, agent_builder, 
-        10, Some(vec![3, 3]), SolverLoggingLevels::Info, None, None,
+        10, Some(vec![3, 3]), SolverLoggingLevels::FreshOnly, None, None,
     );
 
     let domain = domain_builder.build_from_solution(&solution, None);

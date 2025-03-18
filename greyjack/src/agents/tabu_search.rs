@@ -18,6 +18,7 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize{
     neighbours_count: usize,
     tabu_entity_rate: f64,
+    compare_to_global: bool,
     mutation_rate_multiplier: Option<f64>,
     move_probas: Option<Vec<f64>>,
     migration_frequency: usize, 
@@ -31,6 +32,7 @@ where
     pub fn new (
         neighbours_count: usize,
         tabu_entity_rate: f64,
+        compare_to_global: bool,
         mutation_rate_multiplier: Option<f64>,
         move_probas: Option<Vec<f64>>,
         migration_frequency: usize, 
@@ -40,6 +42,7 @@ where
         Self {
             neighbours_count: neighbours_count,
             tabu_entity_rate: tabu_entity_rate,
+            compare_to_global: compare_to_global,
             mutation_rate_multiplier: mutation_rate_multiplier,
             move_probas: move_probas,
             migration_frequency: migration_frequency, 
@@ -58,7 +61,7 @@ where
         let semantic_groups_dict = score_requester.variables_manager.semantic_groups_map.clone();
         let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
 
-        let metaheuristic_base = TabuSearchBase::new(self.neighbours_count, self.tabu_entity_rate, 
+        let metaheuristic_base = TabuSearchBase::new(self.neighbours_count, self.tabu_entity_rate, self.compare_to_global,
                                                                      self.mutation_rate_multiplier, self.move_probas.clone(), semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::TSB(metaheuristic_base);
         
