@@ -12,8 +12,8 @@ It empowers you to solve a wide range of constraint optimization problems, inclu
 
 There are 2 editions of GreyJack Solver:
 
-- Rust version (this repo).
-- [Python version](https://github.com/CameleoGrey/greyjack-solver-python) (in progress...).
+- Rust edition.
+- [Python edition](https://github.com/CameleoGrey/greyjack-solver-python).
 
 # Key Features of GreyJack Solver (Rust version)
 
@@ -35,10 +35,9 @@ cargo add greyjack
 
 # RoadMap
 
-- Implement effective Python version (have some good ideas how to achieve it after working on Rust version)
+- SimulatedAnnealing
 - Composite termination criterion (for example: solving limit minutes N AND score not improving M seconds)
 - Add more examples: Job-Shop, Pickup&Delivery, some continuous and MIP tasks, scheduling, etc
-- SimulatedAnnealing
 - Modern variations (modifications) of LSHADE (Differential evolution algorithms often appear in articles as sota approaches)
 - CMA, probably its modern variants, adaptations for tasks with integer and categorical variables (often appears in articles as sota approach)
 - Multi-level score
@@ -48,3 +47,4 @@ cargo add greyjack
 - Website
 - Useful text materials, guides, presentations
 - Tests, tests, tests...
+- Score explainer / interpreter
