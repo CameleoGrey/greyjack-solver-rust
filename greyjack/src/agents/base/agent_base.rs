@@ -460,6 +460,13 @@ where
                     self.population[0] = global_top_individual.clone();
                 }
             }
+            MetaheuristicsBasesVariants::TSB(tsb) => {
+                if global_top_individual.score < self.agent_top_individual.score {
+                    if tsb.compare_to_global {
+                        self.population[0] = global_top_individual.clone();
+                    }
+                }
+            }
             _ => (),
         }
     }

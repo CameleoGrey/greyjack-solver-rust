@@ -90,7 +90,7 @@ async fn solve_vrp(delivery: &Delivery, solution_sender_channel: &mut Channel, t
     let cotwin_builder = CotwinBuilder::new(true, true);
 
     let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
-    let agent_builder = TS(TabuSearch::new(1024, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(1024, 0.2, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
 
     let rabbitmq_observer = RabbitMQObserver::new(domain_builder.clone(), solution_sender_channel.clone(), tokio_runtime.clone());
     let mut observers: Vec<Box<dyn ObserverTrait + Send>> = Vec::new();

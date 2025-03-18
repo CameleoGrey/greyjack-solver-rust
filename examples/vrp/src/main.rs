@@ -23,7 +23,7 @@ fn main() {
     // 1-depot datasets (plain CVRP)
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n50-k10.vrp"]);
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n500-k20.vrp"]);
-    file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3; RoutingModel: from 67.3 to 74 (depends on time) 
+    //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n1000-k40.vrp"]); //optimum: ~57.7; first_fit: ~195.3; RoutingModel: from 67.3 to 74 (depends on time) 
     //file_path.append(&mut vec!["belgium", "basic", "air", "belgium-n2750-k55.vrp"]);
     // multidepot datasets
     //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d2-n50-k10.vrp"]);
@@ -32,7 +32,7 @@ fn main() {
     //file_path.append(&mut vec!["belgium", "multidepot", "air", "belgium-d10-n2750-k55.vrp"]);
     // multidepot datasets with timewindow constraint
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d2-n50-k10.vrp"]); //optimum: ~15.98; first_fit: ~27.89
-    //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~43.3; first_fit: ~124.884
+    file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d5-n500-k20.vrp"]); //optimum: ~43.3; first_fit: ~124.884
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d8-n1000-k40.vrp"]); //optimum: ~58.1; first_fit: ~154.565
     //has some locations with different coordinates, but with the same name (for example: Antwerpen)
     //file_path.append(&mut vec!["belgium", "multidepot-timewindowed", "air", "belgium-tw-d10-n2750-k55.vrp"]); //optimum: ~111; first_fit: ~380.9
@@ -47,7 +47,7 @@ fn main() {
     //let termination_strategy = StL(StepsLimit::new(100));
     //let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
     let termination_strategy = SNI(ScoreNoImprovement::new(15*1000));
-    let agent_builder = TS(TabuSearch::new(128, 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.0, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(128, 0.2, None, None, 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
     
@@ -100,9 +100,9 @@ fn main() {
     //let termination_strategy = StL(StepsLimit::new(100));
     //let termination_strategy = TSL(TimeSpentLimit::new(60*60*1000));
     let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
-    //let agent_builder = TS(TabuSearch::new(32, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
-    let agent_builder = TS(TabuSearch::new(128, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
-    //let agent_builder = TS(TabuSearch::new(128, 0.2, None, None, 10, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(32, 0.2, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.2, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    //let agent_builder = TS(TabuSearch::new(128, 0.2, true, None, None, 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(20, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
@@ -123,8 +123,8 @@ fn main() {
     (0..1).into_iter().for_each(|k| interim_domain.vehicles[k].customers.iter_mut().for_each(|customer| customer.frozen = true));
 
     let termination_strategy = SNI(ScoreNoImprovement::new(2*1000)); 
-    let agent_builder = TS(TabuSearch::new(128, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
-    //let agent_builder = LA(LateAcceptance::new(2, 0.2, None, None, 1000, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(128, 0.2, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(2, 0.2, true, None, None, 1000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
                     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 
                     None, Some(InitialSolutionVariants::DomainObject(interim_domain.clone())));
@@ -137,7 +137,7 @@ fn main() {
     // 2-nd stage
     //let cotwin_builder = CotwinBuilder::new(false, true);
     /*let termination_strategy = SNI(ScoreNoImprovement::new(30*1000)); 
-    let agent_builder = TS(TabuSearch::new(6000, 0.2, Some(1.0), None, 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(6000, 0.2, true, Some(1.0), None, 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(128, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
@@ -146,7 +146,7 @@ fn main() {
 
     // 3-rd stage (just to try increase quality and reuse solution from 2-nd stage)
     /*let termination_strategy = SNI(ScoreNoImprovement::new(30*1000));
-    let agent_builder = TS(TabuSearch::new(512, 0.2, None, None, 10, termination_strategy));    
+    let agent_builder = TS(TabuSearch::new(512, 0.2, true, None, None, 10, termination_strategy));    
     //let agent_builder = LA(LateAcceptance::new(200, 0.2, None, None, 10000, termination_strategy));
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 
     10, Some(vec![0, 0, 3]), SolverLoggingLevels::FreshOnly, 

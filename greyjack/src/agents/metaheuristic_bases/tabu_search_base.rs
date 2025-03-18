@@ -26,6 +26,7 @@ pub struct TabuSearchBase {
 
     pub neighbours_count: usize,
     pub tabu_entity_rate: f64,
+    pub compare_to_global: bool,
 
     pub metaheuristic_kind: MetaheuristicKind,
     pub metaheuristic_name: MetaheuristicNames,
@@ -39,6 +40,7 @@ impl TabuSearchBase {
     pub fn new(
         neighbours_count: usize,
         tabu_entity_rate: f64,
+        compare_to_global: bool,
         mutation_rate_multiplier: Option<f64>,
         move_probas: Option<Vec<f64>>,
         semantic_groups_map: HashMap<String, Vec<usize>>,
@@ -60,6 +62,7 @@ impl TabuSearchBase {
         Self {
             neighbours_count: neighbours_count,
             tabu_entity_rate: tabu_entity_rate,
+            compare_to_global: compare_to_global,
 
             metaheuristic_kind: MetaheuristicKind::LocalSearch,
             metaheuristic_name: MetaheuristicNames::TabuSearch,
