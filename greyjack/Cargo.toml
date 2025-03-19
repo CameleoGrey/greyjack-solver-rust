@@ -3,7 +3,7 @@
 [package]
 name = "greyjack"
 edition = "2021"
-version = "0.4.10"
+version = "0.4.11"
 authors = ["CameleoGrey (Egor Chnegov) <cameleogrey@yandex.ru>"]
 repository = "https://github.com/CameleoGrey/greyjack-solver-rust/"
 documentation = "https://github.com/CameleoGrey/greyjack-solver-rust/"
