@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::fmt::{Debug, Display};
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use crossbeam_channel::*;
 use chrono::*;
 use polars::datatypes::AnyValue;
@@ -133,6 +133,7 @@ where
         self.step_id = 0;
 
         loop {
+            self.set_agent_step_dependent_params();
             match self.agent_status {
                 AgentStatuses::Alive => {
                     match &self.score_requester.cotwin.score_calculator {
@@ -330,6 +331,9 @@ where
             MetaheuristicsBasesVariants::TSB(tsb) => {
                 migrants = vec![self.population[0].clone(); 1];
             },
+            MetaheuristicsBasesVariants::SAB(sab) => {
+                migrants = vec![self.population[0].clone(); 1];
+            },
             MetaheuristicsBasesVariants::GAB(gab) => {
                 // assume that the agent's population is already sorted
                 let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
@@ -388,6 +392,7 @@ where
             MetaheuristicsBasesVariants::GAB(gab) => current_agent_kind = gab.metaheuristic_kind.clone(),
             MetaheuristicsBasesVariants::LAB(la) => current_agent_kind = la.metaheuristic_kind.clone(),
             MetaheuristicsBasesVariants::TSB(tsb) => current_agent_kind = tsb.metaheuristic_kind.clone(),
+            MetaheuristicsBasesVariants::SAB(sab) => current_agent_kind = sab.metaheuristic_kind.clone(),
         }
 
         let comparison_ids:Vec<usize>;
@@ -467,6 +472,11 @@ where
                     }
                 }
             }
+            MetaheuristicsBasesVariants::SAB(sab) => {
+                if global_top_individual.score < self.agent_top_individual.score {
+                    self.population[0] = global_top_individual.clone();
+                }
+            }
             _ => (),
         }
     }
@@ -514,7 +524,23 @@ where
         }).collect();
         let individual_json = json!((inverse_transformed_variables, individual.score));
         return individual_json;
+    }
 
+    pub fn set_agent_step_dependent_params(&mut self) {
+        match &mut self.metaheuristic_base {
+            MetaheuristicsBasesVariants::SAB(sab) => {
+                match sab.cooling_rate {
+                    None => {
+                        let accomplish_rate = self.termination_strategy.as_trait().get_accomplish_rate();
+                        //sab.inverted_accomplish_rate = sab.exp.powf(-(1.0 - accomplish_rate));
+                        sab.inverted_accomplish_rate = 1.0 - accomplish_rate;
+                        //println!("{}", sab.inverted_accomplish_rate);
+                    }
+                    _ => ()
+                }
+            }
+            _ => (),
+        }
     }
         
 }

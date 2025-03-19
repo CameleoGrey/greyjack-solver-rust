@@ -3,7 +3,7 @@ use super::TerminationStrategyTrait;
 use chrono::prelude::*;
 use crate::agents::base::Individual;
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 
 #[derive(Clone)]

@@ -8,7 +8,7 @@ use crate::variables::PlanningVariablesVariants;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::score_calculation::score_requesters::VariablesManager;
 
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std:: collections::HashMap;
 use std::string::String;
 use polars::prelude::*;

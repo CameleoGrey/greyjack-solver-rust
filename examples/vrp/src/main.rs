@@ -10,7 +10,7 @@ use greyjack::domain::DomainBuilderTrait;
 use greyjack::cotwin::CotwinBuilderTrait;
 use persistence::{CotwinBuilder, DomainBuilder};
 use greyjack::solver::{InitialSolutionVariants, ObserverTrait, Solver, SolverLoggingLevels};
-use greyjack::agents::{GeneticAlgorithm, LateAcceptance, TabuSearch};
+use greyjack::agents::*;
 use greyjack::agents::AgentBuildersVariants::*;
 use greyjack::agents::termination_strategies::*;
 use greyjack::agents::termination_strategies::TerminationStrategiesVariants::*;
@@ -50,7 +50,8 @@ fn main() {
     let agent_builder = TS(TabuSearch::new(128, 0.0, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(128, 0.2, None, None, 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
-    
+    //let agent_builder = SA(SimulatedAnnealing::new(vec![1.0, 1.0, 1.0], Some(0.9999), 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();
     let solution = Solver::solve(domain_builder.clone(), cotwin_builder.clone(), agent_builder, 

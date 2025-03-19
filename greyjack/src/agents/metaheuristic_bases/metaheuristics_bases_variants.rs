@@ -1,9 +1,9 @@
 
 
-use super::{GeneticAlgorithmBase, LateAcceptanceBase, MetaheuristicBaseTrait, TabuSearchBase};
+use super::{GeneticAlgorithmBase, LateAcceptanceBase, MetaheuristicBaseTrait, TabuSearchBase, SimulatedAnnealingBase};
 use crate::score_calculation::scores::ScoreTrait;
 use std::fmt::{Debug, Display};
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use serde::{Serialize};
 
 pub enum MetaheuristicsBasesVariants<ScoreType>
@@ -12,6 +12,7 @@ ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debu
     GAB(GeneticAlgorithmBase),
     LAB(LateAcceptanceBase<ScoreType>),
     TSB(TabuSearchBase),
+    SAB(SimulatedAnnealingBase),
     None
 }
 
@@ -26,6 +27,8 @@ ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debu
             MetaheuristicsBasesVariants::GAB(gab) => gab,
             MetaheuristicsBasesVariants::TSB(tsb) => tsb,
             MetaheuristicsBasesVariants::LAB(lab) => lab,
+            MetaheuristicsBasesVariants::SAB(sab) => sab,
+
 
         }
     }

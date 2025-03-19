@@ -1,8 +1,8 @@
 
 
-use super::{GeneticAlgorithm, LateAcceptance, TabuSearch};
+use super::{GeneticAlgorithm, LateAcceptance, TabuSearch, SimulatedAnnealing};
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 
@@ -13,4 +13,5 @@ where
     GA(GeneticAlgorithm<ScoreType>),
     LA(LateAcceptance<ScoreType>),
     TS(TabuSearch<ScoreType>),
+    SA(SimulatedAnnealing<ScoreType>),
 }

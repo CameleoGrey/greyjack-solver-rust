@@ -9,7 +9,7 @@ use super::ObserverTrait;
 use super::SolverLoggingLevels;
 use super::InitialSolutionVariants;
 
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use std::sync::{Arc, Mutex};
 use crossbeam_channel::*;
@@ -123,6 +123,7 @@ impl Solver {
                 AgentBuildersVariants::GA(ga_builder) => agent_i = ga_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::LA(la_builder) => agent_i = la_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::TS(ts_builder) => agent_i = ts_builder.build_agent(cotwin_i),
+                AgentBuildersVariants::SA(sa_builder) => agent_i = sa_builder.build_agent(cotwin_i),
             }
             agent_i.agent_id = ai_i;
             agent_i.score_precision = sp_i;

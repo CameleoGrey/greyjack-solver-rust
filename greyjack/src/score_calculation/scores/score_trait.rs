@@ -10,6 +10,8 @@ pub trait ScoreTrait {
 
     fn get_stub_score() -> Self;
 
+    fn as_vec(&self) -> Vec<f64>;
+
     fn mul(&self, scalar: f64) -> Self;
 
     #[inline]

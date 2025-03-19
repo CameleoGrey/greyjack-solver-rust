@@ -7,7 +7,7 @@ use crate::score_calculation::score_requesters::OOPScoreRequester;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::cotwin::CotwinEntityTrait;
 use crate::cotwin::Cotwin;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 

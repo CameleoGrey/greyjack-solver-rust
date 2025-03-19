@@ -2,7 +2,7 @@
 use super::{AgentStatuses, Individual};
 use crate::score_calculation::scores::ScoreTrait;
 use std::collections::HashMap;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 
 

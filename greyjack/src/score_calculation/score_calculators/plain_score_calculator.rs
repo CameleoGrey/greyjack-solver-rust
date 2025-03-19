@@ -2,7 +2,7 @@
 use std::collections::{HashMap, HashSet};
 use polars::prelude::*;
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 
 
 pub struct PlainScoreCalculator<UtilityObjectVariants, ScoreType>

@@ -6,7 +6,7 @@ use polars::frame::DataFrame;
 use crate::score_calculation::score_calculators::PlainScoreCalculator;
 use crate::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 
 
 pub struct Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>
