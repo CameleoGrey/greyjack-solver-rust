@@ -44,7 +44,7 @@ fn main() {
     //let termination_strategy = SNI(ScoreNoImprovement::new(5*1000));
     
     // initialize by unique stops inside cotwin_builder + using only swap variation moves during solving
-    let agent_builder = TS(TabuSearch::new(128, 0.2, true, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(1024, 0.5, true, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(64, 0.2, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.05, 0.2, Some(1.0), None, 0.00001, 10, termination_strategy));
     //let agent_builder = SA(SimulatedAnnealing::new(vec![1.0, 1.0], Some(0.9999), 0.0, None, Some(vec![0.0, 0.2, 0.2, 0.2, 0.2, 0.2]), 10, termination_strategy));
