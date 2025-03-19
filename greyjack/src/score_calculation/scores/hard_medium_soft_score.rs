@@ -44,7 +44,7 @@ impl ScoreTrait for HardMediumSoftScore {
         let hard_fitness = 1.0 - (1.0 / (self.hard_score + 1.0));
         let medium_fitness = 1.0 - (1.0 / (self.medium_score + 1.0));
         let soft_fitness = 1.0 - (1.0 / (self.soft_score + 1.0));
-        let fitness_value = 0.33 * hard_fitness + 0.33 * medium_fitness + 0.33 * soft_fitness;
+        let fitness_value = 0.66 * hard_fitness + 0.25 * medium_fitness + 0.9 * soft_fitness;
         
         return fitness_value;
     }
@@ -63,6 +63,10 @@ impl ScoreTrait for HardMediumSoftScore {
             medium_score: f64::MAX - 1.0,
             soft_score: f64::MAX - 1.0
         }
+    }
+
+    fn as_vec(&self) -> Vec<f64> {
+        vec![self.hard_score, self.medium_score, self.soft_score]
     }
 
     fn mul(&self, scalar: f64) -> Self {
@@ -111,7 +115,7 @@ impl Ord for HardMediumSoftScore {
 impl Add for HardMediumSoftScore {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Self {
         HardMediumSoftScore {
             hard_score: self.hard_score + rhs.hard_score,
             medium_score: self.medium_score + rhs.medium_score,

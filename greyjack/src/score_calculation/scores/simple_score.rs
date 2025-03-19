@@ -46,6 +46,10 @@ impl ScoreTrait for SimpleScore {
         }
     }
 
+    fn as_vec(&self) -> Vec<f64> {
+        vec![self.simple_value]
+    }
+
     fn mul(&self, scalar: f64) -> Self {
         SimpleScore {
             simple_value: scalar * self.simple_value,

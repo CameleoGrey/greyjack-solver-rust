@@ -11,7 +11,7 @@ use crate::agents::base::Individual;
 use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use rand_distr::{Distribution, Uniform};
 
@@ -26,12 +26,10 @@ use std::cmp::max;
 https://www.cs.stir.ac.uk/~kjt/techreps/pdf/TR192.pdf
 */
 
-pub struct LateAcceptanceBase<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send {
+pub struct SimulatedAnnealingBase{
 
-    pub late_acceptance_size: usize,
-    //pub late_scores: Vec<ScoreType>,
-    pub late_scores: VecDeque<ScoreType>,
+    pub initial_temperature: Vec<f64>,
+    pub cooling_rate: Option<f64>,
     pub tabu_entity_rate: f64,
 
     pub metaheuristic_kind: MetaheuristicKind,
@@ -40,13 +38,19 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord 
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub discrete_ids: Option<Vec<usize>>,
     pub mover: Mover,
+
+    current_temperature: Vec<f64>,
+    pub inverted_accomplish_rate: f64,
+    random_sampler: Uniform<f64>,
+    random_generator: StdRng,
+    pub exp: f64,
 }
 
-impl<ScoreType> LateAcceptanceBase<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Send  {
+impl SimulatedAnnealingBase  {
 
     pub fn new(
-        late_acceptance_size: usize,
+        initial_temperature: Vec<f64>,
+        cooling_rate: Option<f64>,
         tabu_entity_rate: f64,
         mutation_rate_multiplier: Option<f64>,
         move_probas: Option<Vec<f64>>,
@@ -67,24 +71,27 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord 
         }
 
         Self {
-            late_acceptance_size: late_acceptance_size,
+            initial_temperature: initial_temperature.clone(),
+            cooling_rate: cooling_rate,
             tabu_entity_rate: tabu_entity_rate,
-            //late_scores: Vec::new(),
-            late_scores: VecDeque::new(),
-
 
             metaheuristic_kind: MetaheuristicKind::LocalSearch,
-            metaheuristic_name: MetaheuristicNames::LateAcceptance,
+            metaheuristic_name: MetaheuristicNames::SimulatedAnnealing,
 
             group_mutation_rates_map: group_mutation_rates_map.clone(),
             discrete_ids: discrete_ids.clone(),
             mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map.clone(), move_probas),
+            current_temperature: initial_temperature,
+            inverted_accomplish_rate: 1.0,
+            random_sampler: Uniform::new_inclusive(0.0, 1.0),
+            random_generator: StdRng::from_entropy(),
+            exp: 2.7182818284590452
         }
     }
 
 }
 
-impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for LateAcceptanceBase<ScoreType>
+impl<ScoreType> MetaheuristicBaseTrait<ScoreType> for SimulatedAnnealingBase
 where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {
 
     fn sample_candidates_plain(
@@ -146,41 +153,29 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         candidates: &mut Vec<Individual<ScoreType>>
         ) -> Vec<Individual<ScoreType>> {
         
-        let candidate_to_compare_score;
-        if self.late_scores.len() == 0 {
-            candidate_to_compare_score = current_population[0].score.clone();
-        } else {
-            // vec variant with sorting
-            //self.late_scores.sort();
-            //self.late_scores.reverse();
-            //candidate_to_compare_score = self.late_scores[0].clone();
-
-            //VecDeque variant
-            candidate_to_compare_score = self.late_scores.back().unwrap().clone();
+        match self.cooling_rate {
+            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| *ct * c_r).collect(),
+            None => self.current_temperature = self.current_temperature.iter().map(|ct| self.inverted_accomplish_rate).collect()
         }
 
-        let mut new_population;
-        let candidate_score = candidates[0].score.clone();
-        if (candidate_score <= candidate_to_compare_score) || (candidate_score <= current_population[0].score) {
-            let best_candidate = candidates[0].clone();
-            new_population = vec![best_candidate; 1];
-
-            // vec variant with sorting
-            //self.late_scores.push(candidate_score);
-
-            //VecDeque variant
-            self.late_scores.push_front(candidate_score);
-            if self.late_scores.len() > self.late_acceptance_size {
-
-                // vec variant with sorting
-                //self.late_scores = self.late_scores[1..].to_vec();
-
-                // VecDeque variant
-                self.late_scores.pop_back();
-            }
+        let current_energy = current_population[0].score.as_vec();
+        let candidate_energy = candidates[0].score.as_vec();
+        let accept_probas: Vec<f64> = current_energy
+        .iter().zip(candidate_energy.iter())
+        .enumerate()
+        .map(|(i, (cur_e, can_e))| self.exp.powf((cur_e - can_e) / self.current_temperature[i]))
+        .collect();
+        
+        let accept_proba = accept_probas.iter().fold(1.0, |acc, x| acc * *x);
+        let random_value = self.random_sampler.sample(&mut self.random_generator);
+        
+        let new_population: Vec<Individual<ScoreType>>;
+        if (candidates[0].score <= current_population[0].score) || (random_value < accept_proba) {
+            new_population = candidates.clone();
         } else {
             new_population = current_population.clone();
         }
+
 
         return new_population;
     }
@@ -192,47 +187,32 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
         ) -> Vec<Individual<ScoreType>> {
-
-        let late_native_score;
-        if self.late_scores.len() == 0 {
-            late_native_score = current_population[0].score.clone();
-        } else {
-            // vec variant with sorting
-            //self.late_scores.sort();
-            //self.late_scores.reverse();
-            //candidate_to_compare_score = self.late_scores[0].clone();
-
-            //VecDeque variant
-            late_native_score = self.late_scores.back().unwrap().clone();
+        
+        match self.cooling_rate {
+            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| *ct * c_r).collect(),
+            None => self.current_temperature = self.current_temperature.iter().map(|ct| self.inverted_accomplish_rate).collect()
         }
+        
 
-        let candidate_score = scores[0].clone();
-
-        //println!("{:?}", scores);
-        let mut new_population:Vec<Individual<ScoreType>>;
-        //println!("{:?}, {:?}", candidate_score, late_native_score);
-        //println!("{:?}", self.late_scores);
-        if (candidate_score <= late_native_score) || (candidate_score <= current_population[0].score) {
-            let best_deltas = &deltas[0];
-            for (var_id, new_value) in best_deltas {
+        let current_energy = current_population[0].score.as_vec();
+        let candidate_energy = scores[0].as_vec();
+        let accept_probas: Vec<f64> = current_energy
+        .iter().zip(candidate_energy.iter())
+        .enumerate()
+        .map(|(i, (cur_e, can_e))| self.exp.powf((cur_e - can_e) / self.current_temperature[i]))
+        .collect();
+        
+        let accept_proba = accept_probas.iter().fold(1.0, |acc, x| acc * *x);
+        let random_value = self.random_sampler.sample(&mut self.random_generator);
+        
+        let new_population: Vec<Individual<ScoreType>>;
+        if (scores[0] <= current_population[0].score) || (random_value < accept_proba) {
+            let candidate_deltas = &deltas[0];
+            for (var_id, new_value) in candidate_deltas {
                 sample[*var_id] = *new_value;
             }
-            let best_candidate = Individual::new(sample.clone(), candidate_score.clone());
-            new_population = vec![best_candidate; 1];
-
-            // vec variant with sorting
-            //self.late_scores.push(candidate_score);
-
-            //VecDeque variant
-            self.late_scores.push_front(candidate_score);
-            if self.late_scores.len() > self.late_acceptance_size {
-
-                // vec variant with sorting
-                //self.late_scores = self.late_scores[1..].to_vec();
-
-                // VecDeque variant
-                self.late_scores.pop_back();
-            }
+            let candidate = Individual::new(sample.clone(), scores[0].clone());
+            new_population = vec![candidate; 1];
         } else {
             new_population = current_population.clone();
         }
@@ -249,5 +229,4 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
     }
 }
 
-unsafe impl<ScoreType> Send for LateAcceptanceBase<ScoreType>
-where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Send {}
+unsafe impl Send for SimulatedAnnealingBase {}

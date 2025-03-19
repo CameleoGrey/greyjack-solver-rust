@@ -1,7 +1,7 @@
 
 use super::{IncrementalScoreCalculator, PlainScoreCalculator};
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 
 pub enum ScoreCalculatorVariants<UtilityObjectVariants, ScoreType>
 where 

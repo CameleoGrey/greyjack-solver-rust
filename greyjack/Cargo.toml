@@ -1,3 +1,5 @@
+#cargo-features = ["profile-rustflags"]
+
 [package]
 name = "greyjack"
 edition = "2021"
@@ -32,3 +34,4 @@ serde_json = "1.0.137"
 #codegen-units = 1
 #debug = true
 #opt-level = 3
+#rustflags = ["-C", "target-cpu=native"]

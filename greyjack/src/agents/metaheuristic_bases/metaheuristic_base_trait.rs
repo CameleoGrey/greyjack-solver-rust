@@ -2,7 +2,7 @@
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
 use crate::score_calculation::score_requesters::VariablesManager;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 

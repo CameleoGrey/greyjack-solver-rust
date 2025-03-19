@@ -6,7 +6,7 @@ use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
 use rand_distr::num_traits::ToPrimitive;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 
 use rand::SeedableRng;

@@ -11,4 +11,5 @@ pub enum MetaheuristicNames {
     GeneticAlgorithm,
     TabuSearch,
     LateAcceptance,
+    SimulatedAnnealing,
 }

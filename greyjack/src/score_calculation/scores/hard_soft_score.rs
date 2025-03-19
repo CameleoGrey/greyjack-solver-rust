@@ -58,6 +58,10 @@ impl ScoreTrait for HardSoftScore {
         }
     }
 
+    fn as_vec(&self) -> Vec<f64> {
+        vec![self.hard_score, self.soft_score]
+    }
+
     fn mul(&self, scalar: f64) -> Self {
         HardSoftScore {
             hard_score: scalar * self.hard_score,
@@ -94,7 +98,7 @@ impl Ord for HardSoftScore {
 impl Add for HardSoftScore {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Self {
         HardSoftScore {
             hard_score: self.hard_score + rhs.hard_score,
             soft_score: self.soft_score + rhs.soft_score,

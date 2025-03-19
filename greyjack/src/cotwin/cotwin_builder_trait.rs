@@ -2,7 +2,7 @@
 
 use crate::cotwin::Cotwin;
 use crate::score_calculation::scores::ScoreTrait;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 
 pub trait CotwinBuilderTrait<DomainType, EntityVariants, UtilityObjectVariants, ScoreType>
 where 

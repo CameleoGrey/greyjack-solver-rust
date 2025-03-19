@@ -1,3 +1,4 @@
+
 [workspace]
 resolver = "1"
 members = [
@@ -6,3 +7,9 @@ members = [
     "vrp", 
     "vrp_service",
 ]
+
+#[profile.release]
+#lto = true
+#codegen-units = 1
+#panic = "abort"
+
