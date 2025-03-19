@@ -154,7 +154,13 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         ) -> Vec<Individual<ScoreType>> {
         
         match self.cooling_rate {
-            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| *ct * c_r).collect(),
+            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| {
+                let mut new_temperature = *ct * c_r;
+                if new_temperature < 0.000001 {
+                    new_temperature = 0.0000001;
+                }
+                return new_temperature;
+            }).collect(),
             None => self.current_temperature = self.current_temperature.iter().map(|ct| self.inverted_accomplish_rate).collect()
         }
 
@@ -163,7 +169,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         let accept_probas: Vec<f64> = current_energy
         .iter().zip(candidate_energy.iter())
         .enumerate()
-        .map(|(i, (cur_e, can_e))| self.exp.powf((cur_e - can_e) / self.current_temperature[i]))
+        .map(|(i, (cur_e, can_e))| self.exp.powf(-((can_e - cur_e) / self.current_temperature[i])))
         .collect();
         
         let accept_proba = accept_probas.iter().fold(1.0, |acc, x| acc * *x);
@@ -189,7 +195,13 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         ) -> Vec<Individual<ScoreType>> {
         
         match self.cooling_rate {
-            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| *ct * c_r).collect(),
+            Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| {
+                let mut new_temperature = *ct * c_r;
+                if new_temperature < 0.000001 {
+                    new_temperature = 0.0000001;
+                }
+                return new_temperature;
+            }).collect(),
             None => self.current_temperature = self.current_temperature.iter().map(|ct| self.inverted_accomplish_rate).collect()
         }
         
@@ -199,14 +211,14 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         let accept_probas: Vec<f64> = current_energy
         .iter().zip(candidate_energy.iter())
         .enumerate()
-        .map(|(i, (cur_e, can_e))| self.exp.powf((cur_e - can_e) / self.current_temperature[i]))
+        .map(|(i, (cur_e, can_e))| self.exp.powf(-((can_e - cur_e) / self.current_temperature[i])))
         .collect();
         
         let accept_proba = accept_probas.iter().fold(1.0, |acc, x| acc * *x);
         let random_value = self.random_sampler.sample(&mut self.random_generator);
         
         let new_population: Vec<Individual<ScoreType>>;
-        if (scores[0] <= current_population[0].score) || (random_value < accept_proba) {
+        if (random_value < accept_proba) {
             let candidate_deltas = &deltas[0];
             for (var_id, new_value) in candidate_deltas {
                 sample[*var_id] = *new_value;

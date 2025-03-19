@@ -472,6 +472,7 @@ where
                     }
                 }
             }
+            // often stucks, if compare to global, but common performance increases greatly
             MetaheuristicsBasesVariants::SAB(sab) => {
                 if global_top_individual.score < self.agent_top_individual.score {
                     self.population[0] = global_top_individual.clone();
