@@ -35,7 +35,6 @@ cargo add greyjack
 
 # RoadMap
 
-- SimulatedAnnealing
 - Composite termination criterion (for example: solving limit minutes N AND score not improving M seconds)
 - Add more examples: Job-Shop, Pickup&Delivery, some continuous and MIP tasks, scheduling, etc
 - Modern variations (modifications) of LSHADE (Differential evolution algorithms often appear in articles as sota approaches)
