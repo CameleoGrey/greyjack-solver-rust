@@ -124,6 +124,7 @@ impl Solver {
                 AgentBuildersVariants::LA(la_builder) => agent_i = la_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::TS(ts_builder) => agent_i = ts_builder.build_agent(cotwin_i),
                 AgentBuildersVariants::SA(sa_builder) => agent_i = sa_builder.build_agent(cotwin_i),
+                AgentBuildersVariants::LSH(lsd_builder) => agent_i = lsd_builder.build_agent(cotwin_i),
             }
             agent_i.agent_id = ai_i;
             agent_i.score_precision = sp_i;

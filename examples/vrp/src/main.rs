@@ -14,6 +14,7 @@ use greyjack::agents::*;
 use greyjack::agents::AgentBuildersVariants::*;
 use greyjack::agents::termination_strategies::*;
 use greyjack::agents::termination_strategies::TerminationStrategiesVariants::*;
+use polars::prelude::FalseT;
 use rayon;
 
 // one-stage solving
@@ -46,11 +47,17 @@ fn main() {
     // 1-st stage
     //let termination_strategy = StL(StepsLimit::new(100));
     //let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
-    let termination_strategy = SNI(ScoreNoImprovement::new(15*1000));
-    let agent_builder = TS(TabuSearch::new(1280, 0.8, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    let termination_strategy = SNI(ScoreNoImprovement::new(60*1000));
+    let agent_builder = TS(TabuSearch::new(128, 0.8, true, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
     //let agent_builder = LA(LateAcceptance::new(32, 0.8, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10000, termination_strategy));
     //let agent_builder = GA(GeneticAlgorithm::new(128, 0.5, 0.2, 0.05, Some(1.0), None, 0.00001, 10, termination_strategy)); 
     //let agent_builder = SA(SimulatedAnnealing::new(vec![1.0, 1.0, 1.0], Some(0.9999), 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, termination_strategy));
+    ///////////////////////////////////////////////////
+    // This LSHADE implementation designed for MIP and continuous tasks. For purely integer (like VRP) it works bad.
+    // Here it is just to check, that it works in common (currently no suitable examples in Rust edition).
+    // set use_incremental_score_calculator=false, use_greed_init=false
+    //let agent_builder = LSH(LSHADE::new(16, 32, 0.2, 0.0, 0, 0.5, 0.02, 0.5, 0.0, None, None, 0.00001, 10, termination_strategy));
+    //////////////////////////////////////////////////
 
     // to make possible to build huge round-robin (use n_jobs >= cpus count) of communicating agents
     //rayon::ThreadPoolBuilder::new().num_threads(100).build_global().unwrap();

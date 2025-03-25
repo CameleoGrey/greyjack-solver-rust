@@ -12,4 +12,5 @@ pub enum MetaheuristicNames {
     TabuSearch,
     LateAcceptance,
     SimulatedAnnealing,
+    LSHADE,
 }

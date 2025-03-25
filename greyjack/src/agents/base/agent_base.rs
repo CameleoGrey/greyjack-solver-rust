@@ -339,6 +339,12 @@ where
                 let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
                 migrants = (0..migrants_count).map(|i| self.population[i].clone()).collect();
             },
+            MetaheuristicsBasesVariants::LSH(lsh) => {
+                // assume that the agent's population is already sorted
+                let migrants_count = (self.migration_rate * (self.population_size as f64)).ceil() as usize;
+                migrants = (0..migrants_count).map(|i| self.population[i].clone()).collect();
+            },
+
         }
 
         let agent_update = AgentToAgentUpdate::new(self.agent_id, migrants, round_robin_status_vec);
@@ -393,6 +399,7 @@ where
             MetaheuristicsBasesVariants::LAB(la) => current_agent_kind = la.metaheuristic_kind.clone(),
             MetaheuristicsBasesVariants::TSB(tsb) => current_agent_kind = tsb.metaheuristic_kind.clone(),
             MetaheuristicsBasesVariants::SAB(sab) => current_agent_kind = sab.metaheuristic_kind.clone(),
+            MetaheuristicsBasesVariants::LSH(lsh) => current_agent_kind = lsh.metaheuristic_kind.clone(),
         }
 
         let comparison_ids:Vec<usize>;

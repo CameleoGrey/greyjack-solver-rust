@@ -1,6 +1,6 @@
 
 
-use super::{GeneticAlgorithmBase, LateAcceptanceBase, MetaheuristicBaseTrait, TabuSearchBase, SimulatedAnnealingBase};
+use super::{GeneticAlgorithmBase, LateAcceptanceBase, MetaheuristicBaseTrait, TabuSearchBase, SimulatedAnnealingBase, LSHADEBase};
 use crate::score_calculation::scores::ScoreTrait;
 use std::fmt::{Debug, Display};
 use std::ops::{AddAssign, Sub};
@@ -13,6 +13,7 @@ ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debu
     LAB(LateAcceptanceBase<ScoreType>),
     TSB(TabuSearchBase),
     SAB(SimulatedAnnealingBase),
+    LSH(LSHADEBase<ScoreType>),
     None
 }
 
@@ -28,6 +29,7 @@ ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debu
             MetaheuristicsBasesVariants::TSB(tsb) => tsb,
             MetaheuristicsBasesVariants::LAB(lab) => lab,
             MetaheuristicsBasesVariants::SAB(sab) => sab,
+            MetaheuristicsBasesVariants::LSH(lsh) => lsh,
 
 
         }

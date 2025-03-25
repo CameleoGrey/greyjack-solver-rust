@@ -44,7 +44,7 @@ impl ScoreTrait for HardMediumSoftScore {
         let hard_fitness = 1.0 - (1.0 / (self.hard_score + 1.0));
         let medium_fitness = 1.0 - (1.0 / (self.medium_score + 1.0));
         let soft_fitness = 1.0 - (1.0 / (self.soft_score + 1.0));
-        let fitness_value = 0.66 * hard_fitness + 0.25 * medium_fitness + 0.9 * soft_fitness;
+        let fitness_value = 0.34 * hard_fitness + 0.33 * medium_fitness + 0.33 * soft_fitness;
         
         return fitness_value;
     }

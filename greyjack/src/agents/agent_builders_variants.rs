@@ -1,6 +1,6 @@
 
 
-use super::{GeneticAlgorithm, LateAcceptance, TabuSearch, SimulatedAnnealing};
+use super::{GeneticAlgorithm, LateAcceptance, TabuSearch, SimulatedAnnealing, LSHADE};
 use crate::score_calculation::scores::ScoreTrait;
 use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
@@ -14,4 +14,5 @@ where
     LA(LateAcceptance<ScoreType>),
     TS(TabuSearch<ScoreType>),
     SA(SimulatedAnnealing<ScoreType>),
+    LSH(LSHADE<ScoreType>),
 }
