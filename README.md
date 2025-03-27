@@ -30,8 +30,9 @@ There are 2 editions of GreyJack Solver:
 cargo add greyjack
 ```
 
-- Explore examples. Docs and guides will be later. GreyJack is very intuitively understandable solver (even Rust version).
-- Simply solve your tasks simply.
+- Clone data for examples from this [repo](https://github.com/CameleoGrey/greyjack-data-for-examples)
+- Explore, try examples. Docs and guides will be later. GreyJack is very intuitively understandable solver (even Rust version).
+- Use examples as reference for solving your tasks.
 
 # RoadMap
 
