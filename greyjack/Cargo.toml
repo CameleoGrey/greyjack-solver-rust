@@ -1,24 +1,18 @@
-#cargo-features = ["profile-rustflags"]
 
-[package]
-name = "greyjack"
-edition = "2021"
-version = "0.4.13"
-authors = ["CameleoGrey (Egor Chnegov) <cameleogrey@yandex.ru>"]
-repository = "https://github.com/CameleoGrey/greyjack-solver-rust/"
-documentation = "https://github.com/CameleoGrey/greyjack-solver-rust/"
-description = "Rust version of GreyJack Solver for constraint continuous, integer, mixed integer optimization problems"
-license = "MIT OR Apache-2.0"
-keywords = ["greyjack", "solver", "optimization", "metaheuristic", "polars"]
-categories = [
-    "mathematics",
-	"science",
-    "algorithms",
-    "data-structures",
-	"web-programming"
+[workspace]
+members = [
+    "greyjack",
+    "greyjack-core",
+    "greynet",
 ]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
+uuid = { version = "1.0", features = ["v4", "v5"] }
+slotmap = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
 threadpool = "1.8.1"
 crossbeam-channel = "0.5.14"
 rand = "0.8.5"
@@ -28,6 +22,11 @@ polars = { version = "0.46.0", features = ["lazy", "ndarray", "serde", "abs"] }
 rayon = "1.10.0"
 serde = "1.0.219"
 serde_json = "1.0.137"
+bitvec = "1.0.1"
+twox-hash = "1.6.3"
+generational-arena = "0.2"
+fxhash = "0.2"
+
 
 #[profile.release]
 #lto = true

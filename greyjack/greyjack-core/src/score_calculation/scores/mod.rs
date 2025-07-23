@@ -4,6 +4,7 @@ pub mod score_trait;
 pub mod simple_score;
 pub mod hard_soft_score;
 pub mod hard_medium_soft_score;
+pub mod score_variants;
 
 pub use score_trait::ScoreTrait;
 pub use simple_score::SimpleScore;
