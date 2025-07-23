@@ -7,7 +7,7 @@ repository = "https://github.com/CameleoGrey/greyjack-solver-rust/"
 documentation = "https://github.com/CameleoGrey/greyjack-solver-rust/"
 description = "High performance rule and constraint satisfaction engine"
 license = "MIT OR Apache-2.0"
-keywords = ["greynet", "rule-engine", "rule", "rules", "engine", "greyjack", "solver"]
+keywords = ["greynet", "rule-engine", "engine", "greyjack", "solver"]
 categories = [
     "mathematics",
 	"science",
