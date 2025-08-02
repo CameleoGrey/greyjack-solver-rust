@@ -1,11 +1,13 @@
 
 [workspace]
-resolver = "1"
+resolver = "2"
 members = [
     "nqueens", 
     "tsp", 
     "vrp", 
     "vrp_service",
+    "demo_1",
+    "stress_zero"
 ]
 
 #[profile.release]

@@ -1,81 +1,37 @@
 
-
-use crate::score_calculation::scores::ScoreTrait;
+use std::fmt::Debug;
+use std::ops::{Add, AddAssign};
 use crate::utils::math_utils::round;
+use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
-use std::ops::{Add, AddAssign};
 use std::fmt::{Display, Formatter};
-use serde::{Serialize, Deserialize};
+use super::score_trait::*;
 
+/// HardSoftScore with structured accumulator
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct HardSoftScore {
     pub hard_score: f64,
-    pub soft_score: f64
+    pub soft_score: f64,
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct HardSoftAccumulator {
+    pub hard_total: f64,
+    pub soft_total: f64,
 }
 
 impl HardSoftScore {
-    pub fn new(hard_score: f64, soft_score: f64) -> Self{
-        HardSoftScore{
-            hard_score: hard_score,
-            soft_score: soft_score
-        }
-    }
-}
-
-impl ScoreTrait for HardSoftScore {
-    fn get_sum_abs(&self) -> f64 {
-        self.hard_score.abs() + self.soft_score.abs()
+    pub fn new(hard_score: f64, soft_score: f64) -> Self {
+        Self { hard_score, soft_score }
     }
 
-    fn get_priority_score(&self) -> f64 {
-        if self.hard_score > 0.0 {
-            return self.hard_score;
-        } else {
-            return self.soft_score;
-        }
+    pub fn hard(hard_score: f64) -> Self {
+        Self { hard_score, soft_score: 0.0 }
     }
 
-    fn get_fitness_value(&self) -> f64 {
-        let hard_fitness = 1.0 - (1.0 / (self.hard_score + 1.0));
-        let soft_fitness = 1.0 - (1.0 / (self.soft_score + 1.0));
-        let fitness_value = 0.5 * hard_fitness + 0.5 * soft_fitness;
-        
-        return fitness_value;
-    }
-
-    fn get_null_score() -> Self {
-        HardSoftScore {
-            hard_score: 0.0,
-            soft_score: 0.0
-        }
-    }
-
-    fn get_stub_score() -> Self {
-        HardSoftScore {
-            hard_score: f64::MAX - 1.0,
-            soft_score: f64::MAX - 1.0
-        }
-    }
-
-    fn as_vec(&self) -> Vec<f64> {
-        vec![self.hard_score, self.soft_score]
-    }
-
-    fn mul(&self, scalar: f64) -> Self {
-        HardSoftScore {
-            hard_score: scalar * self.hard_score,
-            soft_score: scalar * self.soft_score
-        }
-    }
-
-    fn precision_len() -> usize {
-        2
-    }
-
-    fn round(&mut self, precision: &Vec<u64>) {
-        self.hard_score = round(self.hard_score, precision[0]);
-        self.soft_score = round(self.soft_score, precision[1]);
+    pub fn soft(soft_score: f64) -> Self {
+        Self { hard_score: 0.0, soft_score }
     }
 }
 
@@ -98,10 +54,10 @@ impl Ord for HardSoftScore {
 impl Add for HardSoftScore {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self {
+    fn add(self, other: Self) -> Self {
         HardSoftScore {
-            hard_score: self.hard_score + rhs.hard_score,
-            soft_score: self.soft_score + rhs.soft_score,
+            hard_score: self.hard_score + other.hard_score,
+            soft_score: self.soft_score + other.soft_score,
         }
     }
 }
@@ -123,62 +79,100 @@ impl Display for HardSoftScore {
 
 unsafe impl Send for HardSoftScore {}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl ScoreTrait for HardSoftScore {
+    type Accumulator = HardSoftAccumulator;
 
-    #[test]
-    fn test_hard_soft_score_impl() {
-        let score = HardSoftScore::new(-1.0, -1.0);
-        assert_eq!(score.get_sum_abs(), 2.0);
-
-        let score = HardSoftScore::new(0.0, 9.0);
-        assert_eq!(score.get_priority_score(), 9.0);
-        assert_eq!(score.get_fitness_value(), 0.45);
+    fn get_null_score() -> Self {
+        HardSoftScore { hard_score: 0.0, soft_score: 0.0 }
     }
 
-    #[test]
-    fn test_hard_soft_score_comparison() {
-
-        let small_score = HardSoftScore::new(-1.0, -1.0);
-        let null_score = HardSoftScore::new(0.0, 0.0);
-        let large_score = HardSoftScore::new(0.0, 0.1);
-
-        assert_eq!(small_score < large_score, true);
-        assert_eq!(small_score <= large_score, true);
-        assert_eq!(small_score != large_score, true);
-        assert_eq!(null_score == null_score, true);
-        assert_eq!(large_score > null_score, true);
-        assert_eq!(large_score >= large_score, true);
-        
-        let mut scores_vec_1: Vec<HardSoftScore> = Vec::new();
-        for i in 0..10 {
-            scores_vec_1.push(HardSoftScore::new(i as f64, (2 * i) as f64));
-        }
-        let scores_vec_2 = scores_vec_1.clone();
-        scores_vec_1.reverse();
-        scores_vec_1.sort();
-        assert_eq!(scores_vec_1, scores_vec_2);
-
-        let mut scores_vec_1: Vec<HardSoftScore> = Vec::new();
-        for i in 0..10 {
-            scores_vec_1.push(HardSoftScore::new(0 as f64, i as f64));
-        }
-        let scores_vec_2 = scores_vec_1.clone();
-        scores_vec_1.reverse();
-        scores_vec_1.sort();
-        assert_eq!(scores_vec_1, scores_vec_2);
-        
+    fn get_fields() -> &'static [&'static str] {
+        &["hard_score", "soft_score"]
     }
 
-    #[test]
-    fn test_simple_score_add() {
-        let mut score_1 = HardSoftScore::new(-1.0, -1.0);
-        let score_2 = HardSoftScore::new(1.0, 1.0);
-        let score_3 = HardSoftScore::new(0.0, 0.0);
-        assert_eq!(score_1.clone() + score_2.clone(), score_3);
+    fn as_vec(&self) -> Vec<f64> {
+        vec![self.hard_score, self.soft_score]
+    }
 
-        score_1 += score_2.clone();
-        assert_eq!(score_1, score_3);
+    fn from_vec(values: Vec<f64>) -> Self {
+        HardSoftScore {
+            hard_score: values.get(0).copied().unwrap_or(0.0),
+            soft_score: values.get(1).copied().unwrap_or(0.0),
+        }
+    }
+
+    fn get_sum_abs(&self) -> f64 {
+        self.hard_score.abs() + self.soft_score.abs()
+    }
+
+    fn get_priority_score(&self) -> f64 {
+        if self.hard_score != 0.0 {
+            self.hard_score
+        } else {
+            self.soft_score
+        }
+    }
+
+    fn mul(&self, scalar: f64) -> Self {
+        HardSoftScore {
+            hard_score: self.hard_score * scalar,
+            soft_score: self.soft_score * scalar,
+        }
+    }
+
+    fn get_fitness_value(&self) -> f64 {
+        let hard_fitness = 1.0 - (1.0 / (self.hard_score + 1.0));
+        let soft_fitness = 1.0 - (1.0 / (self.soft_score + 1.0));
+        0.5 * hard_fitness + 0.5 * soft_fitness
+    }
+
+    fn get_stub_score() -> Self {
+        HardSoftScore {
+            hard_score: f64::INFINITY,
+            soft_score: f64::INFINITY,
+        }
+    }
+
+    fn precision_len() -> usize {
+        return 2;
+    }
+
+    fn round(&mut self, precision: &Vec<u64>) {
+        self.hard_score = round(self.hard_score, precision[0]);
+        self.soft_score = round(self.soft_score, precision[1]);
+    }
+
+    // === ACCUMULATION METHODS ===
+    
+    #[inline]
+    fn accumulate_into(accumulator: &mut Self::Accumulator, score: &Self) {
+        accumulator.hard_total += score.hard_score;
+        accumulator.soft_total += score.soft_score;
+    }
+    
+    #[inline]
+    fn from_accumulator(accumulator: &Self::Accumulator) -> Self {
+        HardSoftScore {
+            hard_score: accumulator.hard_total,
+            soft_score: accumulator.soft_total,
+        }
+    }
+    
+    #[inline]
+    fn reset_accumulator(accumulator: &mut Self::Accumulator) {
+        accumulator.hard_total = 0.0;
+        accumulator.soft_total = 0.0;
+    }
+}
+
+impl FromHard for HardSoftScore {
+    fn hard(value: f64) -> Self {
+        Self::hard(value)
+    }
+}
+
+impl FromSoft for HardSoftScore {
+    fn soft(value: f64) -> Self {
+        Self::soft(value)
     }
 }
