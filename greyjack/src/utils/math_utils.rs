@@ -1,10 +1,21 @@
+// src/utils/math_utils.rs
 
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use rand_distr::{Distribution, Uniform};
 use std::{collections::HashSet, hash::Hash};
 
+/// Creates a standard random number generator from entropy.
+/// This should be created once and passed around where needed.
+pub fn create_rng() -> StdRng {
+    StdRng::from_entropy()
+}
+
 pub fn rint(x: f64) -> f64 {
-    if (x - x.floor()).abs() < (x.ceil() - x).abs() {x.floor()} else {x.ceil()}
+    if (x - x.floor()).abs() < (x.ceil() - x).abs() {
+        x.floor()
+    } else {
+        x.ceil()
+    }
 }
 
 pub fn round(value: f64, precision: u64) -> f64 {
@@ -12,60 +23,51 @@ pub fn round(value: f64, precision: u64) -> f64 {
     value.floor() + ((value - value.floor()) * multiplier).floor() / multiplier
 }
 
-pub fn get_random_id(start_id: usize, end_exclusive: usize) -> usize {
-    Uniform::new(start_id, end_exclusive).sample(&mut StdRng::from_entropy())
+/// Gets a random integer within a specified range using a provided RNG.
+pub fn get_random_id(start_id: usize, end_exclusive: usize, rng: &mut StdRng) -> usize {
+    Uniform::new(start_id, end_exclusive).sample(rng)
 }
 
-pub fn choice<T>(objects: &Vec<T>, n: usize, replace: bool) -> Vec<T>
-where T: Clone {
-    if replace == true {
-        choice_with_replacement(objects, n)
+/// Chooses a random sample of items from a vector, with or without replacement.
+pub fn choice<T>(objects: &Vec<T>, n: usize, replace: bool, rng: &mut StdRng) -> Vec<T>
+where
+    T: Clone,
+{
+    if replace {
+        choice_with_replacement(objects, n, rng)
     } else {
-        choice_without_replacement(objects, n)
+        choice_without_replacement(objects, n, rng)
     }
 }
 
-fn choice_with_replacement<T>(objects: &Vec<T>, n: usize) -> Vec<T>
-where T: Clone {
-    
+/// Helper for choosing items with replacement.
+fn choice_with_replacement<T>(objects: &Vec<T>, n: usize, rng: &mut StdRng) -> Vec<T>
+where
+    T: Clone,
+{
     let objects_count = objects.len();
-    let chosen_objects: Vec<T> = (0..n).into_iter().map(|i| objects[get_random_id(0, objects_count)].clone()).collect();
-    return chosen_objects;
+    let chosen_objects: Vec<T> = (0..n)
+        .into_iter()
+        .map(|_| objects[get_random_id(0, objects_count, rng)].clone())
+        .collect();
+    chosen_objects
 }
 
-fn choice_without_replacement<T>(objects: &Vec<T>, n: usize) -> Vec<T>
-where T: Clone {
-
+/// Helper for choosing items without replacement.
+fn choice_without_replacement<T>(objects: &Vec<T>, n: usize, rng: &mut StdRng) -> Vec<T>
+where
+    T: Clone,
+{
     if n > objects.len() {
-        panic!("There are less objects tnan can be chosen from collection without replacement");
+        panic!("There are fewer objects than can be chosen from the collection without replacement");
     }
-    
-    let mut random_ids:Vec<usize> = (0..objects.len()).collect();
-    random_ids.shuffle(&mut StdRng::from_entropy());
-    let chosen_objects: Vec<T> = (0..n).into_iter().map(|i| objects[random_ids[i]].clone()).collect();
 
-    return chosen_objects;
+    let mut random_ids: Vec<usize> = (0..objects.len()).collect();
+    random_ids.shuffle(rng);
+    let chosen_objects: Vec<T> = (0..n)
+        .into_iter()
+        .map(|i| objects[random_ids[i]].clone())
+        .collect();
+
+    chosen_objects
 }
-
-/*pub fn select_non_tabu_ids<T>(objects: &Vec<T>, n: usize, group: bool) -> Vec<T>
-where T: Clone {
-
-
-
-    /*
-    def _select_non_tabu_ids(self, selection_size, group_name, right_end):
-        random_ids = []
-        while len(random_ids) != selection_size:
-            random_id = self.generator.integers(0, right_end, 1)[0]
-
-            if random_id not in self.tabu_ids_sets_dict[group_name]:
-                self.tabu_ids_sets_dict[group_name].add( random_id )
-                self.tabu_ids_list_dict[group_name].append( random_id )
-                random_ids.append( random_id )
-
-                if len(self.tabu_ids_list_dict[group_name]) > self.tabu_entity_size_dict[group_name]:
-                    self.tabu_ids_sets_dict[group_name].remove( self.tabu_ids_list_dict[group_name].pop(0) )
-
-        return random_ids
-    */
-}*/

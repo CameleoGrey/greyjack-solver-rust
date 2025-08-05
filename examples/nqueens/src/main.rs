@@ -21,7 +21,7 @@ fn main() {
 
     let domain_builder = DomainBuilder::new(1000, 45);
     // CalculatorType::Plain, CalculatorType::Incremental, CalculatorType::Greynet
-    let cotwin_builder = CotwinBuilder::new(CalculatorType::Incremental);
+    let cotwin_builder = CotwinBuilder::new(CalculatorType::Greynet);
     //println!("{}", domain_builder.build_from_scratch());
 
     //let termination_strategy = ScL(ScoreLimit::new(SimpleScore::new(0.0)));

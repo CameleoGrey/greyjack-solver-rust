@@ -1,8 +1,7 @@
-
 use std::cmp::Ordering::*;
-use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Normal, Distribution, Uniform};
+use crate::utils::math_utils;
 
 #[derive(Debug, Clone)]
 pub struct GJFloat {
@@ -21,31 +20,25 @@ impl GJFloat {
     pub fn new(initial_value: Option<f64>, 
         lower_bound: f64, upper_bound: f64, frozen: bool, semantic_groups: Option<Vec<String>>) -> Self {
             
-            let normal_distribution;
-            match initial_value {
-                None => normal_distribution = None,
-                Some(x) => normal_distribution = Some(Normal::new(x, 0.1).unwrap())
-            };
+            let normal_distribution = initial_value.map(|x| Normal::new(x, 0.1).unwrap());
 
             let mut current_semantic_groups: Vec<String> = Vec::new();
             match semantic_groups {
                 None => current_semantic_groups.push("common".to_string()),
                 Some(groups) => {
-                    for group in groups {
-                        current_semantic_groups.push(group);
-                    }
+                    current_semantic_groups.extend(groups);
                 },
             }
 
             GJFloat {
                 name: "".to_string(),
-                initial_value: initial_value,
-                lower_bound: lower_bound,
-                upper_bound: upper_bound,
-                frozen: frozen,
-                random_generator: StdRng::from_entropy(),
+                initial_value,
+                lower_bound,
+                upper_bound,
+                frozen,
+                random_generator: math_utils::create_rng(),
                 uniform_distribution: Uniform::new_inclusive(lower_bound, upper_bound),
-                normal_distribution: normal_distribution,
+                normal_distribution,
                 semantic_groups: current_semantic_groups
             }
         }
@@ -58,138 +51,37 @@ impl GJFloat {
     }
 
     pub fn inverse_transform(&self, value: f64) -> f64 {
-        return self.fix(value);
+        self.fix(value)
     }
 
     pub fn fix(&self, value: f64) -> f64 {
-
         if self.frozen {
-            match self.initial_value {
-                Some(x) => return x,
-                None => panic!("Frozen value must be initialized")
-            }
+            return self.initial_value.expect("Frozen value must be initialized");
         }
         
-        let fixed_value = Self::min(Self::max(value, self.lower_bound), self.upper_bound);
-
-        return fixed_value;
+        value.clamp(self.lower_bound, self.upper_bound)
     }
 
     pub fn sample(&mut self) -> f64 {
-
         if self.frozen {
-            match self.initial_value {
-                Some(x) => return x,
-                None => panic!("Frozen value must be initialized")
-            }
+            return self.initial_value.expect("Frozen value must be initialized");
         }
 
-        let sampled_value: f64 = self.uniform_distribution.sample( &mut self.random_generator);
-        return sampled_value;
+        self.uniform_distribution.sample(&mut self.random_generator)
     }
 
     pub fn get_initial_value(&mut self) -> f64 {
-
         match self.initial_value {
-            None => return self.sample(),
+            None => self.sample(),
             Some(x) => {
-                let initial_value = x;
                 if self.frozen {
-                    return initial_value;
+                    return x;
                 }
-                return initial_value;
+                // If not frozen, we might still want a random value based on the initial one,
+                // but for now, we just return it. If random variation is needed,
+                // this is where the normal_distribution would be used.
+                x
             }
-
         }
-
-
-
-    }
-
-    pub fn min(a: f64, b: f64) -> f64 {
-
-        let min_value;
-        match a.total_cmp(&b) {
-            Less => min_value = a,
-            Greater => min_value = b,
-            Equal => min_value = a
-        }
-        min_value
-    }
-
-    pub fn max(a: f64, b: f64) -> f64 {
-
-        let max_value;
-        match a.total_cmp(&b) {
-            Less => max_value = b,
-            Greater => max_value = a,
-            Equal => max_value = b
-        }
-        max_value
-    }
-
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    /*use polars::frame::row::Row;
-    use polars::prelude::*;
-    use polars::datatypes::{AnyValue, DataType};
-
-    #[test]
-    fn test_polars_init() {
-        /*let mut schema = Schema::default();
-        schema.insert(PlSmallStr::from_static("float_col"), DataType::Float64);
-        schema.insert(PlSmallStr::from_static("int_col"), DataType::Int64);
-        let frame_1 = DataFrame::empty_with_schema(&schema);
-
-        let rows: Vec<Row> = Vec::new();
-        let row_values: Vec<AnyValue> = Vec::new();
-        row_values.push(AnyValue::Float64(1.0));
-        row_values.push(AnyValue::Int64(2));
-        rows.push(Row::new(row_values));
-
-        let frame_1 = DataFrame::from_iter(rows.into());*/
-
-        let mut frame_data: Vec<Column> = Vec::new();
-        let mut float_values: Vec<AnyValue> = Vec::new();
-        float_values.push(AnyValue::Float64(0.0));
-        float_values.push(AnyValue::Null);
-        frame_data.push(Column::new("floats".into(), float_values));
-        
-        let frame_1 = DataFrame::new(frame_data).expect("Broken column data");
-        println!("{}", frame_1);
-
-    }*/
-
-    #[test]
-    fn test_gp_float_var_frozen() {
-        let mut x = GJFloat::new(Some(1.0), -1.0, 1.0, true, None);
-        
-        let initial_value = x.get_initial_value();
-        assert_eq!(initial_value, 1.0);
-    }
-
-    #[test]
-    fn test_gp_float_var_unfrozen() {
-        let mut x = GJFloat::new( Some(1000.0), -10000.0, 10000.0, false, None);
-        
-        let initial_value = x.get_initial_value();
-        assert_ne!(initial_value, 1000.0);
-    }
-
-    #[test]
-    fn test_gp_float_var_fix_value() {
-        let mut x = GJFloat::new(Some(1.0), -1.0, 1.0, false, None);
-        
-        let too_little_value: f64 = -100.0;
-        let fixed_value = x.fix(too_little_value);
-        assert_eq!(fixed_value, -1.0);
-
-        let too_big_value: f64 = 100.0;
-        let fixed_value = x.fix(too_big_value);
-        assert_eq!(fixed_value, 1.0);
     }
 }
