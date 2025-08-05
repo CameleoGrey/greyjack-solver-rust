@@ -2,8 +2,10 @@
 
 use greyjack::cotwin::CotwinEntityTrait;
 use greyjack::cotwin::CotwinValueTypes;
+use greyjack::score_calculation::greynet::InitializableFact;
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub struct CotQueen<'a> {
     pub queen_id: CotwinValueTypes<'a>,
     pub row_id: CotwinValueTypes<'a>,

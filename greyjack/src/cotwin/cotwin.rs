@@ -42,7 +42,20 @@ where
         self.score_calculator = score_calculator;
     }
 
-    pub fn get_score(
+    pub fn get_score_greynet(
+        &mut self,
+        deltas: &Vec<Vec<(usize, f64)>>
+    ) -> Vec<ScoreType> {
+        
+        match &mut self.score_calculator {
+            ScoreCalculatorVariants::Greynet(gnt) => gnt.apply_and_get_score_for_batch(deltas),
+            ScoreCalculatorVariants::ISC(isc) => panic!("Wrong get_score() method called for Greynet score calculator inside score requester"),
+            ScoreCalculatorVariants::PSC(psc) => panic!("Wrong get_score() method called for Greynet score calculator inside score requester"),
+            ScoreCalculatorVariants::None => panic!("No score calculators in cotwin. Add plain or incremental calculator in cotwin builder")
+        }
+    }
+
+    pub fn get_score_dataframe(
         &mut self, 
         planning_entity_dfs: &HashMap<String, DataFrame>, 
         problem_fact_dfs: &HashMap<String, DataFrame>,
@@ -50,8 +63,9 @@ where
     ) -> Vec<ScoreType> {
 
         match &mut self.score_calculator {
-            ScoreCalculatorVariants::PSC(psc) => psc.get_score(planning_entity_dfs, problem_fact_dfs),
             ScoreCalculatorVariants::ISC(isc) => isc.get_score(planning_entity_dfs, problem_fact_dfs, delta_dfs.unwrap()),
+            ScoreCalculatorVariants::PSC(psc) => psc.get_score(planning_entity_dfs, problem_fact_dfs),
+            ScoreCalculatorVariants::Greynet(gnt) => panic!("Wrong get_score() method called for Greynet score calculator inside score requester"),
             ScoreCalculatorVariants::None => panic!("No score calculators in cotwin. Add plain or incremental calculator in cotwin builder") 
         }
     }

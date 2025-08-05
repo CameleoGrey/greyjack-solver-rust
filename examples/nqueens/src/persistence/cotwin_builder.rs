@@ -1,95 +1,120 @@
-
-
-use greyjack::cotwin::Cotwin;
-use greyjack::cotwin::CotwinBuilderTrait;
-use greyjack::cotwin::CotwinValueTypes;
-use greyjack::cotwin::CotwinEntityTrait;
-use greyjack::score_calculation::scores::SimpleScore;
-use greyjack::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
-use greyjack::variables::GJInteger;
-use crate::cotwin::CotQueen;
-use crate::score::NQueensIncrementalScoreCalculator;
-use crate::score::NQueensPlainScoreCalculator;
+use crate::cotwin::cot_queen::CotQueen;
+use crate::cotwin::greynet_queen::GreynetQueen;
 use crate::domain::ChessBoard;
+use crate::score::{
+    NQueensGreynetScoreCalculator, NQueensIncrementalScoreCalculator, NQueensPlainScoreCalculator,
+};
+use greyjack::cotwin::{Cotwin, CotwinBuilderTrait, CotwinEntityTrait, CotwinValueTypes};
+use greyjack::score_calculation::greynet::greynet_traits::{InitializableFact, ModifiableFact};
+use greyjack::score_calculation::score_calculators::score_calculator_variants::ScoreCalculatorVariants;
+use greyjack::score_calculation::scores::SimpleScore;
+use greyjack::variables::GJInteger;
 use polars::datatypes::AnyValue;
-use std::collections::HashMap;
+use std::rc::Rc;
 
-
+#[derive(Clone)]
 pub enum EntityVariants<'a> {
-    CotQueen(CotQueen<'a>)
+    CotQueen(CotQueen<'a>),
 }
 
 impl<'a> CotwinEntityTrait for EntityVariants<'a> {
     fn to_vec(&self) -> Vec<(String, CotwinValueTypes)> {
         match self {
-            EntityVariants::CotQueen(x) => return x.to_vec()
+            EntityVariants::CotQueen(x) => x.to_vec(),
+        }
+    }
+}
+
+impl<'a> InitializableFact for EntityVariants<'a> {
+    fn to_initialized_fact(&self) -> Rc<dyn ModifiableFact + Send> {
+        match self {
+            EntityVariants::CotQueen(cq) => {
+                let queen_id = match cq.queen_id {
+                    CotwinValueTypes::PAV(AnyValue::UInt64(v)) => v as i64,
+                    _ => panic!("Invalid queen_id type"),
+                };
+                let row_id = match &cq.row_id {
+                    CotwinValueTypes::GJI(gji) => gji.initial_value.unwrap() as i64,
+                    _ => panic!("Invalid row_id type"),
+                };
+                let column_id = match cq.column_id {
+                    CotwinValueTypes::PAV(AnyValue::UInt64(v)) => v as i64,
+                    _ => panic!("Invalid column_id type"),
+                };
+
+                Rc::new(GreynetQueen {
+                    queen_id,
+                    row_id,
+                    column_id,
+                })
+            }
         }
     }
 }
 
 pub enum UtilityObjectVariants {}
 
+#[derive(Clone, Copy)]
+pub enum CalculatorType {
+    Plain,
+    Incremental,
+    Greynet,
+}
+
 #[derive(Clone)]
 pub struct CotwinBuilder {
-    use_incremental_score_calculation: bool,
+    calculator_type: CalculatorType,
 }
 
 impl CotwinBuilder {
-    pub fn new(use_incremental_score_calculation: bool) -> Self {
-        Self {
-            use_incremental_score_calculation: use_incremental_score_calculation,
-        }
+    pub fn new(calculator_type: CalculatorType) -> Self {
+        Self { calculator_type }
     }
 }
 
-impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore> for CotwinBuilder
- {
-
-    fn build_cotwin(&self, domain_model: ChessBoard, is_already_initialized: bool) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, SimpleScore> {
+impl<'a> CotwinBuilderTrait<ChessBoard, EntityVariants<'a>, UtilityObjectVariants, SimpleScore>
+    for CotwinBuilder
+{
+    fn build_cotwin(
+        &self,
+        domain_model: ChessBoard,
+        is_already_initialized: bool,
+    ) -> Cotwin<EntityVariants<'a>, UtilityObjectVariants, SimpleScore> {
+        if is_already_initialized {
+            panic!("Building cotwin for existing domain is not implemented for NQueens");
+        }
 
         let n = domain_model.n;
         let queens = &domain_model.queens;
-        let mut cot_queens: Vec<EntityVariants> = Vec::new();
-
-        if is_already_initialized {
-            panic!("Building cotwin for existing domain isn't already implemented for NQueens problem")
-        }
+        let mut cot_queens: Vec<EntityVariants> = Vec::with_capacity(n as usize);
 
         for i in 0..n {
-            let queen_id  = CotwinValueTypes::PAV(AnyValue::UInt64(i));
-            let column_id = CotwinValueTypes::PAV(AnyValue::UInt64(i));
-            // initial_value: Some(queens[i as usize].row.row_id as i64)
-            let planning_row_id = CotwinValueTypes::GJI(
-                GJInteger::new( Some(queens[i as usize].row.row_id as i64), 
-                0, (n-1) as i64, false, None)
-            );
-
             let cot_queen = CotQueen {
-                queen_id: queen_id,
-                row_id: planning_row_id,
-                column_id: column_id,
-
+                queen_id: CotwinValueTypes::PAV(AnyValue::UInt64(i)),
+                column_id: CotwinValueTypes::PAV(AnyValue::UInt64(i)),
+                row_id: CotwinValueTypes::GJI(GJInteger::new(
+                    Some(queens[i as usize].row.row_id as i64),
+                    0,
+                    (n - 1) as i64,
+                    false,
+                    None,
+                )),
             };
-            let cot_queen = EntityVariants::CotQueen(cot_queen);
-            cot_queens.push(cot_queen);
+            cot_queens.push(EntityVariants::CotQueen(cot_queen));
         }
 
         let mut nqueens_cotwin = Cotwin::new();
         nqueens_cotwin.add_planning_entities("queens".to_string(), cot_queens);
 
-        if self.use_incremental_score_calculation {
-            let score_calculator = NQueensIncrementalScoreCalculator::new();
-            nqueens_cotwin.add_score_calculator(ScoreCalculatorVariants::ISC(score_calculator));
-        } else {
-            let score_calculator = NQueensPlainScoreCalculator::new();
-            nqueens_cotwin.add_score_calculator(ScoreCalculatorVariants::PSC(score_calculator));
-        }
+        let calculator = match self.calculator_type {
+            CalculatorType::Incremental => ScoreCalculatorVariants::ISC(NQueensIncrementalScoreCalculator::new()),
+            CalculatorType::Plain => ScoreCalculatorVariants::PSC(NQueensPlainScoreCalculator::new()),
+            CalculatorType::Greynet => ScoreCalculatorVariants::Greynet(NQueensGreynetScoreCalculator::new()),
+        };
+        nqueens_cotwin.add_score_calculator(calculator);
 
-        return nqueens_cotwin;
+        nqueens_cotwin
     }
-}
-
-impl CotwinBuilder {
 }
 
 unsafe impl Send for CotwinBuilder {}

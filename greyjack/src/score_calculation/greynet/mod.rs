@@ -29,6 +29,7 @@ pub mod stream_def;
 pub mod tuple;
 pub mod uni_index;
 pub mod utils;
+pub mod greynet_traits;
 // The `sparse_set` module has been removed as it is no longer needed with the `slotmap` implementation.
 
 // Re-export core types for easier access from outside the super.
@@ -47,7 +48,8 @@ pub use stream_def::{
 };
 pub use tuple::{AnyTuple, BiTuple, FactIterator, PentaTuple, QuadTuple, TriTuple, TupleArity, UniTuple};
 pub use utils::TupleUtils;
-use super::scores::ScoreTrait;
+pub use super::scores::ScoreTrait;
+pub use greynet_traits::{InitializableFact, ModifiableFact};
 
 /// A macro for asserting that no memory leaks (e.g., dangling tuples) exist
 /// in the tuple arena during debug builds.

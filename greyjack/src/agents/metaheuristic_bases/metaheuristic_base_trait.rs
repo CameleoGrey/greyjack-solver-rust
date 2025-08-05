@@ -35,7 +35,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         sample: &mut Vec<f64>,
         deltas: Vec<Vec<(usize, f64)>>,
         scores: Vec<ScoreType>,
-    ) -> Vec<Individual<ScoreType>>;
+    ) -> (Vec<Individual<ScoreType>>, Option<Vec<(usize, f64)>>);
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind;
 

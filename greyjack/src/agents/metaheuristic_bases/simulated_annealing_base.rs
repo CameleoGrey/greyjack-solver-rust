@@ -192,7 +192,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             sample: &mut Vec<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
-        ) -> Vec<Individual<ScoreType>> {
+        ) -> (Vec<Individual<ScoreType>>, Option<Vec<(usize, f64)>>) {
         
         match self.cooling_rate {
             Some(c_r) => self.current_temperature = self.current_temperature.iter().map(|ct| {
@@ -217,19 +217,18 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         let accept_proba = accept_probas.iter().fold(1.0, |acc, x| acc * *x);
         let random_value = self.random_sampler.sample(&mut self.random_generator);
         
-        let new_population: Vec<Individual<ScoreType>>;
-        if (random_value < accept_proba) {
-            let candidate_deltas = &deltas[0];
-            for (var_id, new_value) in candidate_deltas {
+        let mut sample = sample;
+        if (scores[0] <= current_population[0].score) || (random_value < accept_proba) {
+            let candidate_deltas = deltas[0].clone();
+            for (var_id, new_value) in &candidate_deltas {
                 sample[*var_id] = *new_value;
             }
-            let candidate = Individual::new(sample.clone(), scores[0].clone());
-            new_population = vec![candidate; 1];
+            let candidate = Individual::<ScoreType>::new(sample.clone(), scores[0].clone());
+            let new_population = vec![candidate; 1];
+            (new_population, Some(candidate_deltas))
         } else {
-            new_population = current_population.clone();
+            (current_population.clone(), None)
         }
-
-        return new_population;
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

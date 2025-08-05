@@ -3,13 +3,17 @@ use super::base::agent_base::Agent;
 use super::metaheuristic_bases::SimulatedAnnealingBase;
 use super::metaheuristic_bases::MetaheuristicsBasesVariants;
 use crate::agents::termination_strategies::TerminationStrategiesVariants;
-use crate::score_calculation::score_requesters::OOPScoreRequester;
+use crate::score_calculation::score_calculators::ScoreCalculatorVariants;
+use crate::score_calculation::score_requesters::DataframeScoreRequester;
+use crate::score_calculation::score_requesters::GreynetScoreRequester;
+use crate::score_calculation::score_requesters::ScoreRequestersVariants;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::cotwin::CotwinEntityTrait;
 use crate::cotwin::Cotwin;
 use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
+use crate::score_calculation::greynet::InitializableFact;
 
 
 #[derive(Clone)]
@@ -55,11 +59,37 @@ where
         cotwin: Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>
     )  -> Agent<EntityVariants, UtilityObjectVariants, ScoreType>
     where 
-        EntityVariants: CotwinEntityTrait {
+        EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static {
 
-        let score_requester = OOPScoreRequester::new(cotwin);
-        let semantic_groups_dict = score_requester.variables_manager.semantic_groups_map.clone();
-        let discrete_ids = score_requester.variables_manager.discrete_ids.clone();
+        let score_requester;
+        match &cotwin.score_calculator {
+            ScoreCalculatorVariants::Greynet(sc_gnt) => {
+                score_requester = ScoreRequestersVariants::Greynet(GreynetScoreRequester::new(cotwin));
+            },
+            ScoreCalculatorVariants::ISC(sc_df) => {
+                score_requester = ScoreRequestersVariants::Dataframe(DataframeScoreRequester::new(cotwin));
+            },
+            ScoreCalculatorVariants::PSC(sc_df) => {
+                score_requester = ScoreRequestersVariants::Dataframe(DataframeScoreRequester::new(cotwin));
+            },
+            ScoreCalculatorVariants::None => {
+                panic!("Score calculator isn't implemented. Check your Cotwin builder.");
+            }
+        }
+
+        let semantic_groups_dict;
+        let discrete_ids;
+
+        match &score_requester {
+            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                semantic_groups_dict = sr_gnt.variables_manager.semantic_groups_map.clone();
+                discrete_ids = sr_gnt.variables_manager.discrete_ids.clone();
+            },
+            ScoreRequestersVariants::Dataframe(sr_df) => {
+                semantic_groups_dict = sr_df.variables_manager.semantic_groups_map.clone();
+                discrete_ids = sr_df.variables_manager.discrete_ids.clone();
+            }
+        }
 
         let metaheuristic_base = SimulatedAnnealingBase::new(self.initial_temperature.clone(), self.cooling_rate, self.tabu_entity_rate,
                                                                                  self.mutation_rate_multiplier, self.move_probas.clone(),

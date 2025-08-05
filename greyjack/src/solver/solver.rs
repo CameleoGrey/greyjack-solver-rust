@@ -4,6 +4,7 @@ use crate::agents::base::{Agent, AgentStatuses, AgentToAgentUpdate, Individual};
 use crate::agents::AgentBuildersVariants;
 use crate::domain::DomainBuilderTrait;
 use crate::cotwin::{CotwinBuilderTrait, CotwinEntityTrait};
+use crate::score_calculation::greynet::InitializableFact;
 use crate::score_calculation::scores::ScoreTrait;
 use super::ObserverTrait;
 use super::SolverLoggingLevels;
@@ -36,7 +37,7 @@ impl Solver {
     DomainType: Clone + Send,
     DomainBuilder: DomainBuilderTrait<DomainType> + Clone + Send + Sync,
     CotwinBuilder: CotwinBuilderTrait<DomainType, EntityVariants, UtilityObjectVariants, ScoreType> + Clone + Send,
-    EntityVariants: CotwinEntityTrait + Send,
+    EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord + Debug + Display + Send + Serialize {
 
         /* 

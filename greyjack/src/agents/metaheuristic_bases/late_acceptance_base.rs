@@ -191,53 +191,33 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
             sample: &mut Vec<f64>,
             deltas: Vec<Vec<(usize, f64)>>,
             scores: Vec<ScoreType>,
-        ) -> Vec<Individual<ScoreType>> {
+        ) -> (Vec<Individual<ScoreType>>, Option<Vec<(usize, f64)>>) {
 
         let late_native_score;
         if self.late_scores.len() == 0 {
             late_native_score = current_population[0].score.clone();
         } else {
-            // vec variant with sorting
-            //self.late_scores.sort();
-            //self.late_scores.reverse();
-            //candidate_to_compare_score = self.late_scores[0].clone();
-
-            //VecDeque variant
             late_native_score = self.late_scores.back().unwrap().clone();
         }
 
         let candidate_score = scores[0].clone();
-
-        //println!("{:?}", scores);
-        let mut new_population:Vec<Individual<ScoreType>>;
-        //println!("{:?}, {:?}", candidate_score, late_native_score);
-        //println!("{:?}", self.late_scores);
+        
+        let mut sample = sample;
         if (candidate_score <= late_native_score) || (candidate_score <= current_population[0].score) {
-            let best_deltas = &deltas[0];
-            for (var_id, new_value) in best_deltas {
+            let best_deltas = deltas[0].clone();
+            for (var_id, new_value) in &best_deltas {
                 sample[*var_id] = *new_value;
             }
-            let best_candidate = Individual::new(sample.clone(), candidate_score.clone());
-            new_population = vec![best_candidate; 1];
-
-            // vec variant with sorting
-            //self.late_scores.push(candidate_score);
-
-            //VecDeque variant
+            let best_candidate = Individual::<ScoreType>::new(sample.clone(), candidate_score.clone());
+            let new_population = vec![best_candidate; 1];
             self.late_scores.push_front(candidate_score);
             if self.late_scores.len() > self.late_acceptance_size {
-
-                // vec variant with sorting
-                //self.late_scores = self.late_scores[1..].to_vec();
-
-                // VecDeque variant
                 self.late_scores.pop_back();
             }
+            (new_population, Some(best_deltas))
         } else {
-            new_population = current_population.clone();
+            (current_population.clone(), None)
         }
-
-        return new_population;
     }
 
     fn get_metaheuristic_kind(&self) -> MetaheuristicKind {

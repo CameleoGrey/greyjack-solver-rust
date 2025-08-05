@@ -5,3 +5,4 @@ pub mod domain_builder;
 
 pub use cotwin_builder::CotwinBuilder;
 pub use domain_builder::DomainBuilder;
+pub use cotwin_builder::CalculatorType;

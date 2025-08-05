@@ -133,7 +133,6 @@ impl<S: ScoreTrait + 'static> Session<S> {
         }
     }
 
-    /// CRITICAL PERFORMANCE FIX: Removed statistics tracking from hot path
     #[inline]
     pub fn insert<T: GreynetFact + 'static>(&mut self, fact: T) -> Result<()> {
         let fact_id = fact.fact_id();
@@ -160,16 +159,7 @@ impl<S: ScoreTrait + 'static> Session<S> {
         match self.scheduler.schedule_insert(tuple_index, &mut self.tuples) {
             Ok(()) => {
                 self.fact_to_tuple_map.insert(fact_id, tuple_index);
-                
-                // PERFORMANCE FIX: Only track stats when feature enabled
-                #[cfg(feature = "detailed-stats")]
-                {
-                    self.stream_processing_stats.tuples_processed += 1;
-                }
-                
-                // Invalidate cached statistics
                 *self.cached_statistics.borrow_mut() = None;
-                
                 Ok(())
             }
             Err(e) => {
@@ -179,7 +169,47 @@ impl<S: ScoreTrait + 'static> Session<S> {
         }
     }
 
-    /// Inserts a collection of facts into the session.
+    /// FIX: Inserts a fact passed as a trait object. This is crucial for generic components
+    /// like the score calculator, as it recovers the concrete `TypeId` from the trait object
+    /// and routes the fact to the correct `FromNode`.
+    pub fn insert_dyn_fact(&mut self, fact: Rc<dyn GreynetFact + Send>) -> Result<()> {
+        let fact_id = fact.fact_id();
+        let fact_type_id = fact.as_any().type_id(); // Get the original concrete TypeId
+
+        if self.fact_to_tuple_map.contains_key(&fact_id) {
+            return Err(GreynetError::duplicate_fact(fact_id));
+        }
+
+        self.limits.check_tuple_limit(self.tuples.arena.len())?;
+
+        let from_node_id = *self
+            .from_nodes
+            .get(&fact_type_id)
+            .ok_or_else(|| GreynetError::unregistered_type(
+                // Using a placeholder as `type_name_of_val` is unstable
+                format!("dynamic type with id {:?}", fact_type_id)
+            ))?;
+
+        let tuple = AnyTuple::Uni(UniTuple::new(fact));
+        let tuple_index = self.tuples.acquire_tuple(tuple)?;
+
+        if let Ok(t) = self.tuples.get_tuple_mut_checked(tuple_index) {
+            t.set_node(from_node_id);
+        }
+
+        match self.scheduler.schedule_insert(tuple_index, &mut self.tuples) {
+            Ok(()) => {
+                self.fact_to_tuple_map.insert(fact_id, tuple_index);
+                *self.cached_statistics.borrow_mut() = None;
+                Ok(())
+            }
+            Err(e) => {
+                self.tuples.release_tuple(tuple_index);
+                Err(e)
+            }
+        }
+    }
+
     pub fn insert_batch<T: GreynetFact + 'static>(&mut self, facts: impl IntoIterator<Item = T>) -> Result<()> {
         for fact in facts {
             self.insert(fact)?;
@@ -187,35 +217,24 @@ impl<S: ScoreTrait + 'static> Session<S> {
         Ok(())
     }
 
-    /// Bulk insert with performance optimization
-    pub fn insert_bulk<T: GreynetFact + 'static>(&mut self, facts: Vec<T>) -> Result<()> {
-        let batch_size = facts.len();
-        self.tuples.reserve_capacity(batch_size);
-        
-        for fact in facts {
-            self.insert(fact)?;
-        }
-        
-        self.flush()?;
-        Ok(())
-    }
-
-    /// Retracts a fact from the session, scheduling it for removal.
     #[inline]
     pub fn retract<T: GreynetFact>(&mut self, fact: &T) -> Result<()> {
-        let fact_id = fact.fact_id();
+        self.retract_by_id(fact.fact_id())
+    }
+
+    /// FIX: Retracts a fact by its ID. This is necessary for generic components that
+    /// only have access to the fact's ID, not its concrete type.
+    pub fn retract_by_id(&mut self, fact_id: i64) -> Result<()> {
         let tuple_index = self
             .fact_to_tuple_map
             .remove(&fact_id)
             .ok_or_else(|| GreynetError::fact_not_found(fact_id))?;
             
-        // Invalidate cached statistics
         *self.cached_statistics.borrow_mut() = None;
         
         self.scheduler.schedule_retract(tuple_index, &mut self.tuples)
     }
 
-    /// Retracts a collection of facts from the session.
     pub fn retract_batch<'a, T: GreynetFact + 'a>(&mut self, facts: impl IntoIterator<Item = &'a T>) -> Result<()> {
         for fact in facts {
             self.retract(fact)?;
@@ -223,44 +242,21 @@ impl<S: ScoreTrait + 'static> Session<S> {
         Ok(())
     }
 
-    /// Removes all facts from the session.
     pub fn clear(&mut self) -> Result<()> {
         let tuple_indices_to_retract: Vec<SafeTupleIndex> = self.fact_to_tuple_map.values().cloned().collect();
         self.fact_to_tuple_map.clear();
         for index in tuple_indices_to_retract {
             self.scheduler.schedule_retract(index, &mut self.tuples)?;
         }
-        
-        // Invalidate cached statistics
         *self.cached_statistics.borrow_mut() = None;
-        
         self.flush()
     }
 
-    /// Processes all pending insertions and retractions until the network is stable.
     #[inline]
     pub fn flush(&mut self) -> Result<()> {
         self.scheduler.execute_all(&mut self.nodes, &mut self.tuples)
     }
 
-    /// Flush with additional optimizations for large datasets
-    pub fn flush_with_optimizations(&mut self) -> Result<()> {
-        let cleaned = self.tuples.cleanup_if_memory_pressure();
-        
-        #[cfg(feature = "detailed-stats")]
-        if cleaned > 0 {
-            self.stream_processing_stats.deduplication_events += cleaned;
-        }
-        
-        self.flush()?;
-        
-        #[cfg(feature = "detailed-stats")]
-        self.update_performance_metrics();
-        
-        Ok(())
-    }
-
-    /// Calculates and returns the total score for the current state of the network.
     pub fn get_score(&mut self) -> Result<S> {
         self.flush()?;
         let mut total_accumulator = S::Accumulator::default();
@@ -273,7 +269,6 @@ impl<S: ScoreTrait + 'static> Session<S> {
         Ok(S::from_accumulator(&total_accumulator))
     }
 
-    /// Updates a constraint's weight and triggers a score recalculation.
     pub fn update_constraint_weight(&mut self, constraint_id_str: &str, new_weight: f64) -> Result<()> {
         self.weights.borrow().set_weight(constraint_id_str, new_weight);
 
@@ -289,29 +284,7 @@ impl<S: ScoreTrait + 'static> Session<S> {
         }
         Ok(())
     }
-
-    /// Bulk update multiple constraint weights
-    pub fn update_constraint_weights(&mut self, weight_updates: HashMap<String, f64>) -> Result<()> {
-        let mut affected_constraints = HashSet::default();
-        
-        for (constraint_name, new_weight) in weight_updates {
-            self.weights.borrow().set_weight(&constraint_name, new_weight);
-            if let Some(constraint_id) = self.weights.borrow().get_id(&constraint_name) {
-                affected_constraints.insert(constraint_id);
-            }
-        }
-        
-        for &node_id in &self.scoring_nodes {
-            if let Some(NodeData::Scoring(node)) = self.nodes.get_node_mut(node_id) {
-                if affected_constraints.contains(&node.constraint_id) {
-                    node.recalculate_scores(&self.tuples)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Retrieves all tuples that are currently violating any constraints.
+    
     pub fn get_constraint_matches(&mut self) -> Result<HashMap<String, Vec<AnyTuple>>> {
         self.flush()?;
         let mut all_matches = HashMap::default();

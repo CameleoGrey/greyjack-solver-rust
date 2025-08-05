@@ -4,7 +4,9 @@ use crate::agents::termination_strategies::TerminationStrategiesVariants;
 use crate::agents::termination_strategies::TerminationStrategiesVariants::*;
 use crate::agents::termination_strategies::TerminationStrategyTrait;
 use crate::score_calculation::score_calculators::ScoreCalculatorVariants;
-use crate::score_calculation::score_requesters::OOPScoreRequester;
+use crate::score_calculation::score_requesters::ScoreRequestersVariants;
+use crate::score_calculation::score_requesters::DataframeScoreRequester;
+use crate::score_calculation::greynet::greynet_traits::InitializableFact;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
 use crate::agents::metaheuristic_bases::MetaheuristicBaseTrait;
@@ -18,6 +20,7 @@ use super::AgentToAgentUpdate;
 use super::AgentStatuses;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::panic;
 use std::sync::{Arc, Mutex};
 use std::fmt::{Debug, Display};
 use std::ops::{AddAssign, Sub};
@@ -30,7 +33,7 @@ use serde_json::Value;
 
 pub struct Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
-    EntityVariants: CotwinEntityTrait,
+    EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
     pub migration_rate: f64, 
@@ -45,7 +48,7 @@ where
     pub global_top_json: Arc<Mutex<Value>>,
     pub is_global_top_updated: bool,
     
-    pub score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
+    pub score_requester: ScoreRequestersVariants<EntityVariants, UtilityObjectVariants, ScoreType>,
     pub score_precision: Option<Vec<u64>>,
     pub metaheuristic_base: MetaheuristicsBasesVariants<ScoreType>,
     
@@ -70,7 +73,7 @@ where
 impl<EntityVariants, UtilityObjectVariants, ScoreType> 
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
-    EntityVariants: CotwinEntityTrait,
+    EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
     pub fn new(
@@ -78,7 +81,7 @@ where
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
-        score_requester: OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>,
+        score_requester: ScoreRequestersVariants<EntityVariants, UtilityObjectVariants, ScoreType>,
         metaheuristic_base: MetaheuristicsBasesVariants<ScoreType>,
     ) -> Agent<EntityVariants, UtilityObjectVariants, ScoreType> {
 
@@ -136,12 +139,20 @@ where
             self.set_agent_step_dependent_params();
             match self.agent_status {
                 AgentStatuses::Alive => {
-                    match &self.score_requester.cotwin.score_calculator {
-                        ScoreCalculatorVariants::PSC(psc) => self.step_plain(),
-                        ScoreCalculatorVariants::ISC(isc) => self.step_incremental(),
-                        ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder.")
+                    match &self.score_requester {
+                        ScoreRequestersVariants::Greynet(sr_gnt) => {
+                            self.step_incremental()
+                        },
+                        ScoreRequestersVariants::Dataframe(sr_df) => {
+                            match &sr_df.cotwin.score_calculator {
+                                ScoreCalculatorVariants::PSC(psc) => self.step_plain(),
+                                ScoreCalculatorVariants::ISC(isc) => self.step_incremental(),
+                                ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder."),
+                                _ => panic!("ScoreRequestersVariants::Dataframe is incompatible with GreynetScoreCalculator"),
+                            }
+                        }
                     }
-                },
+                }
                 AgentStatuses::Dead => (),
             }
             self.step_id += 1;
@@ -189,32 +200,41 @@ where
 
     fn init_population(&mut self) {
 
-
-        match &self.score_requester.cotwin.score_calculator {
-            ScoreCalculatorVariants::PSC(psc) => {
-                let mut samples:Vec<Vec<f64>> = Vec::new();
-                for i in 0..self.population_size {
-                    let mut generated_sample = self.score_requester.variables_manager.sample_variables();
-                    samples.push(generated_sample);
-                }
-                let scores = self.score_requester.request_score_plain(&samples);
-
-                for i in 0..self.population_size {
-                    self.population.push(Individual::new(samples[i].clone(), scores[i].clone()));
-                }
-            },
-
-            ScoreCalculatorVariants::ISC(isc) => {
-                let generated_sample = self.score_requester.variables_manager.sample_variables();
+        match &mut self.score_requester {
+            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                let generated_sample = sr_gnt.variables_manager.sample_variables();
                 let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
                 deltas.push(generated_sample.iter().enumerate().map(|i_val| (i_val.0, i_val.1.clone())).collect());
-                let scores = self.score_requester.request_score_incremental(&generated_sample, &deltas);
+                let scores = sr_gnt.request_score_incremental(&generated_sample, &deltas);
                 self.population.push(Individual::new(generated_sample, scores[0].clone()));
             },
+            ScoreRequestersVariants::Dataframe(sr_df) => {
+                match &sr_df.cotwin.score_calculator {
+                    ScoreCalculatorVariants::PSC(psc) => {
+                        let mut samples:Vec<Vec<f64>> = Vec::new();
+                        for i in 0..self.population_size {
+                            let mut generated_sample = sr_df.variables_manager.sample_variables();
+                            samples.push(generated_sample);
+                        }
+                        let scores = sr_df.request_score_plain(&samples);
 
-            ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder.")
+                        for i in 0..self.population_size {
+                            self.population.push(Individual::new(samples[i].clone(), scores[i].clone()));
+                        }
+                    },
+
+                    ScoreCalculatorVariants::ISC(isc) => {
+                        let generated_sample = sr_df.variables_manager.sample_variables();
+                        let mut deltas: Vec<Vec<(usize, f64)>> = Vec::new();
+                        deltas.push(generated_sample.iter().enumerate().map(|i_val| (i_val.0, i_val.1.clone())).collect());
+                        let scores = sr_df.request_score_incremental(&generated_sample, &deltas);
+                        self.population.push(Individual::new(generated_sample, scores[0].clone()));
+                    },
+                    ScoreCalculatorVariants::None => panic!("Score calculator is not existing. Check your cotwin builder."),
+                    _ => panic!("Incomaptible score calculator. Check your cotwin builder.")
+                }
+            }
         }
-
     }
 
     fn update_top_individual(&mut self) {
@@ -274,13 +294,20 @@ where
 
         let me_base = self.metaheuristic_base.as_trait();
         let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-            
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let samples: Vec<Vec<f64>> = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-        //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
         
         //let start_time = chrono::Utc::now().timestamp_millis();
-        let mut scores = self.score_requester.request_score_plain(&samples);
+        let samples: Vec<Vec<f64>>;
+        let mut scores: Vec<ScoreType>;
+        match &mut self.score_requester {
+            ScoreRequestersVariants::Dataframe(sr_df) => {
+                samples = me_base.sample_candidates_plain(&mut self.population, &self.agent_top_individual, &mut sr_df.variables_manager);
+                scores = sr_df.request_score_plain(&samples);
+            },
+            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                panic!("No methods sample_candidates_plain(), request_score_plain() for GreynetScoreRequester");
+            }
+        }
+
         match &self.score_precision {
             Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
             None => ()
@@ -300,21 +327,36 @@ where
     fn step_incremental(&mut self) {
 
         let me_base = self.metaheuristic_base.as_trait();
-        let mut new_population: Vec<Individual<ScoreType>> = Vec::new();
-            
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut self.score_requester.variables_manager);
-        //println!("Sampling time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-
-        //let start_time = chrono::Utc::now().timestamp_millis();
-        let mut scores = self.score_requester.request_score_incremental(&sample, &deltas);
-        match &self.score_precision {
-            Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
-            None => ()
+        let new_population: Vec<Individual<ScoreType>>;
+        let applied_deltas: Option<Vec<(usize, f64)>>;
+        
+        match &mut self.score_requester {
+            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut sr_gnt.variables_manager);
+                let mut scores = sr_gnt.request_score_incremental(&sample, &deltas);
+                match &self.score_precision {
+                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                    None => ()
+                }
+                (new_population, applied_deltas) = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
+                
+                match applied_deltas {
+                    Some(ad) => {
+                        sr_gnt.commit_deltas(&ad);
+                    },
+                    None => {}
+                }
+            }
+            ScoreRequestersVariants::Dataframe(sr_df) => {
+                let (mut sample, deltas) = me_base.sample_candidates_incremental(&mut self.population, &self.agent_top_individual, &mut sr_df.variables_manager);
+                let mut scores = sr_df.request_score_incremental(&sample, &deltas);
+                match &self.score_precision {
+                    Some(precision) => scores.iter_mut().for_each(|score| score.round(&precision)),
+                    None => ()
+                }
+                (new_population, _) = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
+            }
         }
-        //println!("Scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
-
-        new_population = me_base.build_updated_population_incremental(&self.population, &mut sample, deltas, scores);
 
         self.population = new_population;
     }
@@ -522,8 +564,20 @@ where
 
     pub fn convert_to_json(&self, individual: Individual<ScoreType>) -> Value {
 
-        let inverse_transformed_variables = self.score_requester.variables_manager.inverse_transform_variables(&individual.variable_values);
-        let variables_names = self.score_requester.variables_manager.get_variables_names_vec();
+        let inverse_transformed_variables: Vec<AnyValue>;
+        let variables_names: Vec<String>;
+
+        match &self.score_requester {
+            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                inverse_transformed_variables = sr_gnt.variables_manager.inverse_transform_variables(&individual.variable_values);
+                variables_names = sr_gnt.variables_manager.get_variables_names_vec();
+            },
+            ScoreRequestersVariants::Dataframe(sr_df) => {
+                inverse_transformed_variables = sr_df.variables_manager.inverse_transform_variables(&individual.variable_values);
+                variables_names = sr_df.variables_manager.get_variables_names_vec();
+            }
+        }
+
         let inverse_transformed_variables: Vec<(String, AnyValue)> = 
         inverse_transformed_variables.iter()
         .zip(variables_names.iter())
@@ -556,13 +610,13 @@ where
 unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for 
 Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
-    EntityVariants: CotwinEntityTrait,
+    EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {}
 
 impl<EntityVariants, UtilityObjectVariants, ScoreType> ObservableTrait 
 for Agent<EntityVariants, UtilityObjectVariants, ScoreType>
 where
-    EntityVariants: CotwinEntityTrait,
+    EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
         // Solver gets observers as arguments of solve. This is stub implementation just for pattern Observer be "clean".

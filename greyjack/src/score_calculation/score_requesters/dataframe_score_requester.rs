@@ -8,13 +8,12 @@ use crate::variables::PlanningVariablesVariants;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::score_calculation::score_requesters::VariablesManager;
 
-use std::ops::{AddAssign, Sub};
+use std::ops::{AddAssign};
 use std:: collections::HashMap;
 use std::string::String;
 use polars::prelude::*;
-use rayon::prelude::*;
 
-pub struct OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+pub struct DataframeScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     ScoreType: ScoreTrait + Clone + AddAssign + Send{
         pub cotwin: Cotwin<EntityVariants, UtilityObjectVariants, ScoreType>,
@@ -39,7 +38,7 @@ where
 }
 
 impl<EntityVariants, UtilityObjectVariants, ScoreType> 
-OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+DataframeScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
 where
     ScoreType: ScoreTrait + Clone + AddAssign + Send,
     EntityVariants: CotwinEntityTrait {
@@ -347,7 +346,7 @@ where
             //println!("updatimg dfs time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             //let start_time = chrono::Utc::now().timestamp_millis();
-            let score_batch = &self.cotwin.get_score(&self.planning_entity_dfs, &self.problem_fact_dfs, None);
+            let score_batch = &self.cotwin.get_score_dataframe(&self.planning_entity_dfs, &self.problem_fact_dfs, None);
             let score_batch = score_batch.to_owned();
             //println!("query time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
@@ -455,7 +454,7 @@ where
             //println!("deltas df building time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
             //let start_time = chrono::Utc::now().timestamp_millis();
-            let score_batch = &self.cotwin.get_score(&self.planning_entity_dfs, &self.problem_fact_dfs, Some(&delta_dfs));
+            let score_batch = &self.cotwin.get_score_dataframe(&self.planning_entity_dfs, &self.problem_fact_dfs, Some(&delta_dfs));
             let score_batch = score_batch.to_owned();
             //println!("scoring time: {}", chrono::Utc::now().timestamp_millis() - start_time );
 
@@ -464,7 +463,7 @@ where
 
     }
 
-unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for OOPScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
+unsafe impl<EntityVariants, UtilityObjectVariants, ScoreType> Send for DataframeScoreRequester<EntityVariants, UtilityObjectVariants, ScoreType>
 where 
     ScoreType: ScoreTrait + Clone + AddAssign + Send,
     EntityVariants: CotwinEntityTrait {}
