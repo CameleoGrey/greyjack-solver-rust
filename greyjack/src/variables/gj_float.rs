@@ -1,5 +1,5 @@
 use std::cmp::Ordering::*;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand_distr::{Normal, Distribution, Uniform};
 use crate::utils::math_utils;
 
@@ -10,7 +10,7 @@ pub struct GJFloat {
     pub lower_bound: f64,
     pub upper_bound: f64,
     pub frozen: bool,
-    pub random_generator: StdRng,
+    pub random_generator: SmallRng,
     pub uniform_distribution: Uniform<f64>,
     pub normal_distribution: Option<Normal<f64>>,
     pub semantic_groups: Vec<String>

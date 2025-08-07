@@ -7,7 +7,7 @@ use polars::prelude::*;
 use std::collections::HashMap;
 
 use rand::SeedableRng;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand_distr::{Distribution, Uniform};
 
 pub struct VariablesManager {
@@ -89,14 +89,14 @@ impl VariablesManager {
         semantic_groups_dict
     }
 
-    pub fn get_random_semantic_group_ids<'a>(&'a self, rng: &mut StdRng) -> (&'a Vec<usize>, &'a String) {
+    pub fn get_random_semantic_group_ids<'a>(&'a self, rng: &mut SmallRng) -> (&'a Vec<usize>, &'a String) {
         let random_group_id = Uniform::new(0, self.n_semantic_groups).sample(rng);
         let group_name = &self.semantic_group_keys[random_group_id];
         let group_ids = self.semantic_groups_map.get(group_name).unwrap();
         (group_ids, group_name)
     }
 
-    pub fn get_column_random_value(&self, column_id: usize, rng: &mut StdRng) -> f64 {
+    pub fn get_column_random_value(&self, column_id: usize, rng: &mut SmallRng) -> f64 {
         Uniform::new(self.lower_bounds[column_id], self.upper_bounds[column_id]).sample(rng)
     }
 

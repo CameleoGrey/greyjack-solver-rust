@@ -14,6 +14,7 @@ use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 use crate::score_calculation::greynet::InitializableFact;
+use rustc_hash::FxHashMap;
 
 
 #[derive(Clone)]
@@ -112,6 +113,7 @@ where
             }
         }
 
+        let semantic_groups_dict: FxHashMap<String, Vec<usize>> = semantic_groups_dict.into_iter().collect();
         let metaheuristic_base = LSHADEBase::new(self.population_size,
                                                                         self.history_archive_size,
                                                                         self.p_best_rate,
@@ -127,7 +129,7 @@ where
                                                                         discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::LSH(metaheuristic_base);
         
-        let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(self.migration_rate, 
+        let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(self.migration_rate, None,
                                                                                         self.migration_frequency, self.termination_strategy.clone(), 
                                                                                         self.population_size, score_requester, 
                                                                                         metaheuristic_base);

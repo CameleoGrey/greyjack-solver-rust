@@ -7,7 +7,7 @@ use crate::domain::Position;
 
 use std::collections::HashMap;
 use rand::*;
-use rand::rngs::{StdRng};
+use rand::rngs::{SmallRng};
 use seq::SliceRandom;
 use polars::datatypes::AnyValue;
 use serde_json::*;
@@ -27,7 +27,7 @@ impl DomainBuilderTrait<ChessBoard> for DomainBuilder {
             random_row_ids.push(i);
             column_ids.push(i);
         }
-        let mut random_generator = StdRng::seed_from_u64(self.random_seed);
+        let mut random_generator = SmallRng::seed_from_u64(self.random_seed);
         random_row_ids.shuffle(&mut random_generator);
         
 

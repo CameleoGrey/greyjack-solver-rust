@@ -20,6 +20,9 @@ where
     /// Maps the solver's variable index to the fact instance and attribute name it controls.
     /// This map is populated by the `GreynetScoreRequester`.
     pub var_idx_to_entity_map: FxHashMap<usize, (Rc<dyn ModifiableFact + Send>, String)>,
+    /// Reverse index: maps entity fact_id to all variable indices that point to it.
+    /// This enables O(k) updates where k = number of changed entities.
+    entity_id_to_var_indices: FxHashMap<i64, Vec<usize>>,
 }
 
 impl<ScoreType> GreynetScoreCalculator<ScoreType>
@@ -33,6 +36,19 @@ where
         Self {
             session,
             var_idx_to_entity_map: FxHashMap::default(),
+            entity_id_to_var_indices: FxHashMap::default(),
+        }
+    }
+
+    /// Rebuilds the reverse index from the current var_idx_to_entity_map.
+    /// This should be called by the GreynetScoreRequester after populating var_idx_to_entity_map.
+    pub fn rebuild_reverse_index(&mut self) {
+        self.entity_id_to_var_indices.clear();
+        for (&var_idx, (entity, _)) in &self.var_idx_to_entity_map {
+            self.entity_id_to_var_indices
+                .entry(entity.fact_id())
+                .or_insert_with(Vec::new)
+                .push(var_idx);
         }
     }
 
@@ -91,6 +107,7 @@ where
 
     /// Commits a set of deltas to the session state permanently and updates the internal
     /// entity map to point to the new fact instances.
+    /// OPTIMIZED: Uses reverse index for O(k) updates where k = number of changed entities.
     pub fn commit_deltas(&mut self, deltas: &[(usize, f64)]) {
         if deltas.is_empty() {
             return;
@@ -108,11 +125,21 @@ where
             self.session.flush().unwrap();
         }
         
-        // Update the map to point to the new, committed facts
-        for (_var_idx, (entity, _attr)) in self.var_idx_to_entity_map.iter_mut() {
-            let original_id = entity.fact_id();
-            if let Some(new_entity) = original_id_to_new_entity_map.get(&original_id) {
-                *entity = new_entity.clone();
+        // OPTIMIZATION: Use reverse index to directly find and update affected variables
+        // This is O(k * avg_vars_per_entity) instead of O(total_variables)
+        for (old_entity_id, new_entity) in &original_id_to_new_entity_map {
+            if let Some(var_indices) = self.entity_id_to_var_indices.get(old_entity_id) {
+                // Update all variables that point to this entity
+                for &var_idx in var_indices {
+                    if let Some((entity, _attr)) = self.var_idx_to_entity_map.get_mut(&var_idx) {
+                        *entity = new_entity.clone();
+                    }
+                }
+                
+                // Update the reverse index to point to the new entity
+                if let Some(var_indices_owned) = self.entity_id_to_var_indices.remove(old_entity_id) {
+                    self.entity_id_to_var_indices.insert(new_entity.fact_id(), var_indices_owned);
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-// nodes.rs - Enhanced with new node types
+// nodes.rs - Enhanced with new node types and join performance optimizations
 use super::advanced_index::AdvancedIndex;
 use super::arena::{NodeId, NodeOperation, SafeTupleIndex, TupleArena};
 use super::collectors::{BaseCollector, UndoReceipt};
@@ -14,7 +14,7 @@ use super::state::TupleState;
 use super::tuple::{AnyTuple, FactIterator, ZeroCopyFacts};
 use super::{GreynetError, Result};
 use rustc_hash::FxHashMap as HashMap;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -241,6 +241,10 @@ pub struct JoinNode {
     pub right_key_fn: KeyFn,
     /// Stores the results of successful joins (parent tuple pairs -> child tuple).
     pub beta_memory: HashMap<PackedIndices, SafeTupleIndex>,
+    /// MODIFIED: Reverse index from left parent to joined pairs for O(1) retraction.
+    pub left_to_pairs: HashMap<SafeTupleIndex, SmallVec<[PackedIndices; 4]>>,
+    /// MODIFIED: Reverse index from right parent to joined pairs for O(1) retraction.
+    pub right_to_pairs: HashMap<SafeTupleIndex, SmallVec<[PackedIndices; 4]>>,
 }
 
 impl JoinNode {
@@ -257,6 +261,9 @@ impl JoinNode {
             left_key_fn,
             right_key_fn,
             beta_memory: HashMap::default(),
+            // MODIFIED: Initialize new reverse indices
+            left_to_pairs: HashMap::default(),
+            right_to_pairs: HashMap::default(),
         }
     }
 
@@ -281,19 +288,20 @@ impl JoinNode {
     if !right_matches.is_empty() {
         operations.reserve(right_matches.len() * self.children.len());
         for &right_match_idx in &right_matches {
-            // First, create the packed key for the parent tuple pair.
             let packed = super::packed_indices::PackedIndices::new(tuple_index, right_match_idx);
             
-            // Before creating a child, check if one already exists for this pair.
-            // This prevents creating a duplicate if the right-side tuple was processed first.
             if self.beta_memory.contains_key(&packed) {
-                continue; // Child already exists, do nothing.
+                continue;
             }
 
             let right_tuple = tuples.get_tuple_checked(right_match_idx)?.clone();
             if let Ok(combined) = left_tuple.combine(&right_tuple) {
                 let child_idx = tuples.acquire_tuple_fast(combined)?;
-                // Use the 'packed' key we created earlier.
+                
+                // MODIFIED: Update reverse indices
+                self.left_to_pairs.entry(tuple_index).or_default().push(packed);
+                self.right_to_pairs.entry(right_match_idx).or_default().push(packed);
+
                 self.beta_memory.insert(packed, child_idx);
                 for &child_id in &self.children {
                     operations.push(NodeOperation::Insert(child_id, child_idx));
@@ -327,18 +335,20 @@ pub fn insert_right_collect_ops(
     }
 
     for &left_match_idx in &left_matches {
-        // Create the packed key for the parent tuple pair.
         let packed = PackedIndices::new(left_match_idx, tuple_index);
 
-        // Check if a child already exists for this pair to prevent duplicates.
         if self.beta_memory.contains_key(&packed) {
-            continue; // Child already exists, do nothing.
+            continue; 
         }
 
         let left_tuple = tuples.get_tuple_checked(left_match_idx)?.clone();
         if let Ok(combined) = left_tuple.combine(&right_tuple) {
             let child_idx = tuples.acquire_tuple_fast(combined)?;
-            // Use the 'packed' key we created earlier.
+
+            // MODIFIED: Update reverse indices
+            self.left_to_pairs.entry(left_match_idx).or_default().push(packed);
+            self.right_to_pairs.entry(tuple_index).or_default().push(packed);
+
             self.beta_memory.insert(packed, child_idx);
             for &child_id in &self.children {
                 operations.push(NodeOperation::Insert(child_id, child_idx));
@@ -348,6 +358,7 @@ pub fn insert_right_collect_ops(
     Ok(())
 }
 
+    // MODIFIED: Optimized retraction using reverse index
     pub fn retract_left_collect_ops(
         &mut self,
         tuple_index: SafeTupleIndex,
@@ -359,27 +370,33 @@ pub fn insert_right_collect_ops(
             self.left_index.remove(key, &tuple_index);
         }
 
-        let pairs_to_remove: SmallVec<[PackedIndices; 16]> = self
-            .beta_memory
-            .keys()
-            .filter(|packed| packed.left_key() == tuple_index.key())
-            .copied()
-            .collect();
+        // OPTIMIZED: Direct O(1) lookup of pairs to remove.
+        if let Some(pairs_to_remove) = self.left_to_pairs.remove(&tuple_index) {
+            for packed in pairs_to_remove {
+                if let Some(child_idx) = self.beta_memory.remove(&packed) {
+                    for &child_id in &self.children {
+                        operations.push(NodeOperation::Retract(child_id, child_idx));
+                    }
+                    if let Ok(child_tuple) = tuples.get_tuple_mut_checked(child_idx) {
+                        child_tuple.set_state(TupleState::Dying);
+                    }
+                    operations.push(NodeOperation::ReleaseTuple(child_idx));
 
-        for packed in pairs_to_remove {
-            if let Some(child_idx) = self.beta_memory.remove(&packed) {
-                for &child_id in &self.children {
-                    operations.push(NodeOperation::Retract(child_id, child_idx));
+                    // Clean up the corresponding entry in the right_to_pairs index.
+                    let right_idx = packed.right_safe_index();
+                    if let Some(right_pairs) = self.right_to_pairs.get_mut(&right_idx) {
+                        right_pairs.retain(|&mut p| p != packed);
+                        if right_pairs.is_empty() {
+                            self.right_to_pairs.remove(&right_idx);
+                        }
+                    }
                 }
-                if let Ok(child_tuple) = tuples.get_tuple_mut_checked(child_idx) {
-                    child_tuple.set_state(TupleState::Dying);
-                }
-                operations.push(NodeOperation::ReleaseTuple(child_idx));
             }
         }
         Ok(())
     }
 
+    // MODIFIED: Optimized retraction using reverse index
     pub fn retract_right_collect_ops(
         &mut self,
         tuple_index: SafeTupleIndex,
@@ -391,22 +408,27 @@ pub fn insert_right_collect_ops(
             self.right_index.remove(key, &tuple_index);
         }
 
-        let pairs_to_remove: SmallVec<[PackedIndices; 16]> = self
-            .beta_memory
-            .keys()
-            .filter(|packed| packed.right_key() == tuple_index.key())
-            .copied()
-            .collect();
+        // OPTIMIZED: Direct O(1) lookup of pairs to remove.
+        if let Some(pairs_to_remove) = self.right_to_pairs.remove(&tuple_index) {
+            for packed in pairs_to_remove {
+                if let Some(child_idx) = self.beta_memory.remove(&packed) {
+                    for &child_id in &self.children {
+                        operations.push(NodeOperation::Retract(child_id, child_idx));
+                    }
+                    if let Ok(child_tuple) = tuples.get_tuple_mut_checked(child_idx) {
+                        child_tuple.set_state(TupleState::Dying);
+                    }
+                    operations.push(NodeOperation::ReleaseTuple(child_idx));
 
-        for packed in pairs_to_remove {
-            if let Some(child_idx) = self.beta_memory.remove(&packed) {
-                for &child_id in &self.children {
-                    operations.push(NodeOperation::Retract(child_id, child_idx));
+                    // Clean up the corresponding entry in the left_to_pairs index.
+                    let left_idx = packed.left_safe_index();
+                    if let Some(left_pairs) = self.left_to_pairs.get_mut(&left_idx) {
+                        left_pairs.retain(|&mut p| p != packed);
+                        if left_pairs.is_empty() {
+                            self.left_to_pairs.remove(&left_idx);
+                        }
+                    }
                 }
-                if let Ok(child_tuple) = tuples.get_tuple_mut_checked(child_idx) {
-                    child_tuple.set_state(TupleState::Dying);
-                }
-                operations.push(NodeOperation::ReleaseTuple(child_idx));
             }
         }
         Ok(())

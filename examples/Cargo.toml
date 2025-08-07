@@ -10,8 +10,8 @@ members = [
     "stress_zero"
 ]
 
-#[profile.release]
+[profile.release]
 #lto = true
 #codegen-units = 1
 #panic = "abort"
-
+debug=true

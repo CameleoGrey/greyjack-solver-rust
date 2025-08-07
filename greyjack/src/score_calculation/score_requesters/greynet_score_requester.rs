@@ -81,6 +81,7 @@ where
         };
 
         calculator.var_idx_to_entity_map = var_idx_to_entity_map;
+        calculator.rebuild_reverse_index();
 
         // 3. Perform the initial load of all facts into the Greynet session.
         let mut problem_facts_as_greynet: HashMap<String, Vec<Rc<dyn GreynetFact + Send>>> = HashMap::new();

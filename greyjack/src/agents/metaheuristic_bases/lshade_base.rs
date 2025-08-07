@@ -1,19 +1,19 @@
 // src/agents/metaheuristic_bases/lshade_base.rs
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 use crate::score_calculation::score_requesters::VariablesManager;
 use super::MetaheuristicBaseTrait;
 use crate::score_calculation::scores::ScoreTrait;
 use crate::agents::base::Individual;
 use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand_distr::{Distribution, Normal};
 use super::Mover;
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
 use std::collections::VecDeque;
-use std::collections::HashSet;
+use rustc_hash::FxHashSet as HashSet;
 use std::cmp::max;
 use rand::Rng;
 use rand::seq::SliceRandom;
@@ -61,7 +61,7 @@ where
     pub group_mutation_rates_map: HashMap<String, f64>,
     pub discrete_ids: Option<Vec<usize>>,
     pub mover: Mover,
-    pub random_generator: StdRng,
+    pub random_generator: SmallRng,
 }
 
 impl<ScoreType> LSHADEBase<ScoreType>
@@ -85,7 +85,7 @@ where
     ) -> Self {
         let current_mutation_rate_multiplier = mutation_rate_multiplier.unwrap_or(0.0);
         
-        let mut group_mutation_rates_map: HashMap<String, f64> = HashMap::new();
+        let mut group_mutation_rates_map: HashMap<String, f64> = HashMap::default();
         for (group_name, group_ids) in &semantic_groups_dict {
             let group_size = group_ids.len();
             let current_group_mutation_rate = current_mutation_rate_multiplier * (1.0 / (group_size as f64));
@@ -120,7 +120,7 @@ where
             metaheuristic_name: MetaheuristicNames::LSHADE,
             group_mutation_rates_map: group_mutation_rates_map.clone(),
             discrete_ids: discrete_ids.clone(),
-            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map, move_probas),
+            mover: Mover::new(tabu_entity_rate, HashMap::default(), HashMap::default(), HashMap::default(), group_mutation_rates_map, move_probas),
             random_generator: math_utils::create_rng(),
         }
     }
@@ -178,7 +178,7 @@ where
         if self.mover.tabu_entity_size_map.is_empty() {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
             for (group_name, group_ids) in semantic_groups_map {
-                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::new());
+                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::default());
                 self.mover.tabu_entity_size_map.insert(group_name.clone(), max((self.tabu_entity_rate * (group_ids.len() as f64)).ceil() as usize, 1));
                 self.mover.tabu_ids_vecdeque_map.insert(group_name.clone(), VecDeque::new());
             }

@@ -36,7 +36,9 @@ where
     EntityVariants: CotwinEntityTrait + InitializableFact + Clone + Send + 'static,
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
-    pub migration_rate: f64, 
+    pub migration_rate: f64,
+    pub compare_with_global_frequency: Option<usize>,
+    steps_to_comparing_with_global: usize,
     pub migration_frequency: usize, 
     pub termination_strategy: TerminationStrategiesVariants<ScoreType>,
 
@@ -77,7 +79,8 @@ where
     ScoreType: ScoreTrait + Clone + AddAssign + PartialEq +  PartialOrd + Ord + Debug + Display + Send + Serialize {
 
     pub fn new(
-        migration_rate: f64, 
+        migration_rate: f64,
+        compare_with_global_frequency: Option<usize>,
         migration_frequency: usize, 
         termination_strategy: TerminationStrategiesVariants<ScoreType>,
         population_size: usize,
@@ -88,8 +91,15 @@ where
         // agent_id, round_robin_status_dict and channels will be set by Solver, not by agent 
         let global_top_individual: Individual<ScoreType> = Individual::new(vec![1.0], ScoreType::get_stub_score());
         let global_top_individual = Arc::new(Mutex::new(global_top_individual));
+        let steps_to_comparing_with_global;
+        match compare_with_global_frequency {
+            Some(freq) => steps_to_comparing_with_global = freq,
+            None => steps_to_comparing_with_global = std::usize::MAX
+        }
         Self {
             migration_rate: migration_rate,
+            compare_with_global_frequency: compare_with_global_frequency,
+            steps_to_comparing_with_global: steps_to_comparing_with_global,
             migration_frequency: migration_frequency,
             termination_strategy: termination_strategy,
 
@@ -156,15 +166,19 @@ where
                 AgentStatuses::Dead => (),
             }
             self.step_id += 1;
+            match self.compare_with_global_frequency {
+                Some(_) => self.steps_to_comparing_with_global -= 1,
+                _ => {}
+            }
             
             if self.population_size > 1 {
                 self.population.sort();
             }
             self.update_top_individual();
-            self.update_termination_strategy();
+            self.update_global_top();
+            self.log_solving_info();
             self.update_agent_status();
             self.update_alive_agents_count();
-            self.log_solving_info();
             if self.alive_agents_count == 0 {
                 break;
             }
@@ -192,8 +206,8 @@ where
                 }
                 self.steps_to_send_updates = self.migration_frequency;
             }
-            
-            self.update_global_top();
+
+            self.update_termination_strategy();
         }
 
     }
@@ -502,8 +516,12 @@ where
             }
         }
 
-        // Frequent migration works bad for LateAcceptance, rare migration gives a small improvement.
-        // But sharing new global works good.
+        if self.steps_to_comparing_with_global > 0 {
+            return;
+        } 
+
+        self.steps_to_comparing_with_global = self.compare_with_global_frequency.unwrap().clone();
+
         match &mut self.metaheuristic_base {
             MetaheuristicsBasesVariants::LAB(la) => {
                 if global_top_individual.score < self.agent_top_individual.score {
@@ -511,23 +529,34 @@ where
                     if la.late_scores.len() > la.late_acceptance_size {
                         la.late_scores.pop_back();
                     }
-                    self.population[0] = global_top_individual.clone();
                 }
-            }
-            MetaheuristicsBasesVariants::TSB(tsb) => {
+            },
+            _ => {}
+        }
+
+        match &mut self.metaheuristic_base { 
+            MetaheuristicsBasesVariants::LAB(_) | MetaheuristicsBasesVariants::TSB(_) | MetaheuristicsBasesVariants::SAB(_) => {
                 if global_top_individual.score < self.agent_top_individual.score {
-                    if tsb.compare_to_global {
-                        self.population[0] = global_top_individual.clone();
-                    }
+                    let global_copy = global_top_individual.clone();
+                        match &mut self.score_requester {
+                            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                                let mut deltas: Vec<(usize, f64)> = global_copy.variable_values
+                                                                        .iter()
+                                                                        .enumerate()
+                                                                        .map(|i_val| (i_val.0, i_val.1.clone()))
+                                                                        .zip(&self.population[0].variable_values)
+                                                                        .filter(|((i, x), y)| {x != *y})
+                                                                        .map(|((i, x), y)| {(i, x)})
+                                                                        .collect();
+                                //println!("{:?}", deltas);
+                                sr_gnt.commit_deltas(&deltas);
+                            },
+                            _ => {}
+                        }
+                        self.population[0] = global_copy;
                 }
-            }
-            // often stucks, if compare to global, but common performance increases greatly
-            MetaheuristicsBasesVariants::SAB(sab) => {
-                if global_top_individual.score < self.agent_top_individual.score {
-                    self.population[0] = global_top_individual.clone();
-                }
-            }
-            _ => (),
+            },
+            _ => {}
         }
     }
 

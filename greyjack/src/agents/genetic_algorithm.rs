@@ -12,6 +12,7 @@ use crate::cotwin::CotwinEntityTrait;
 use crate::cotwin::Cotwin;
 use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
+use rustc_hash::FxHashMap;
 use serde::Serialize;
 use crate::score_calculation::greynet::InitializableFact;
 
@@ -97,12 +98,15 @@ where
             }
         }
 
+        let semantic_groups_dict: FxHashMap<String, Vec<usize>> = semantic_groups_dict.into_iter().collect();
+
         let metaheuristic_base = GeneticAlgorithmBase::new(self.population_size, self.crossover_probability, self.p_best_rate, self.tabu_entity_rate, 
                                                                                  self.mutation_rate_multiplier, self.move_probas.clone(),
                                                                                  semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::GAB(metaheuristic_base);
         
         let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(self.migration_rate, 
+                                                                                        None,
                                                                                         self.migration_frequency, self.termination_strategy.clone(), 
                                                                                         self.population_size, score_requester, 
                                                                                         metaheuristic_base);

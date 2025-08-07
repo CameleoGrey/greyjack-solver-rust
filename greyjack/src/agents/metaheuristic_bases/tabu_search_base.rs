@@ -10,14 +10,14 @@ use std::ops::{AddAssign, Sub};
 use std::fmt::Debug;
 
 use rand::SeedableRng;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand_distr::{Distribution, Uniform};
 
 use super::metaheuristic_kinds_and_names::{MetaheuristicKind, MetaheuristicNames};
 use crate::utils::math_utils;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 use std::collections::VecDeque;
-use std::collections::HashSet;
+use rustc_hash::FxHashSet as HashSet;
 use std::cmp::max;
 
 
@@ -26,7 +26,6 @@ pub struct TabuSearchBase {
 
     pub neighbours_count: usize,
     pub tabu_entity_rate: f64,
-    pub compare_to_global: bool,
 
     pub metaheuristic_kind: MetaheuristicKind,
     pub metaheuristic_name: MetaheuristicNames,
@@ -40,7 +39,6 @@ impl TabuSearchBase {
     pub fn new(
         neighbours_count: usize,
         tabu_entity_rate: f64,
-        compare_to_global: bool,
         mutation_rate_multiplier: Option<f64>,
         move_probas: Option<Vec<f64>>,
         semantic_groups_map: HashMap<String, Vec<usize>>,
@@ -52,7 +50,7 @@ impl TabuSearchBase {
             Some(x) => current_mutation_rate_multiplier = mutation_rate_multiplier.unwrap(),
             None => current_mutation_rate_multiplier = 0.0,
         }
-        let mut group_mutation_rates_map: HashMap<String, f64> = HashMap::new();
+        let mut group_mutation_rates_map: HashMap<String, f64> = HashMap::default();
         for group_name in semantic_groups_map.keys() {
             let group_size = semantic_groups_map[group_name].len();
             let current_group_mutation_rate = current_mutation_rate_multiplier * (1.0 / (group_size as f64));
@@ -62,13 +60,12 @@ impl TabuSearchBase {
         Self {
             neighbours_count: neighbours_count,
             tabu_entity_rate: tabu_entity_rate,
-            compare_to_global: compare_to_global,
 
             metaheuristic_kind: MetaheuristicKind::LocalSearch,
             metaheuristic_name: MetaheuristicNames::TabuSearch,
 
             discrete_ids: discrete_ids.clone(),
-            mover: Mover::new(tabu_entity_rate, HashMap::new(), HashMap::new(), HashMap::new(), group_mutation_rates_map, move_probas),
+            mover: Mover::new(tabu_entity_rate, HashMap::default(), HashMap::default(), HashMap::default(), group_mutation_rates_map, move_probas),
         }
     }
 
@@ -87,7 +84,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
             for (group_name, group_ids) in semantic_groups_map {
-                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::new());
+                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::default());
                 self.mover.tabu_entity_size_map.insert(group_name.clone(), max((self.tabu_entity_rate * (group_ids.len().to_f64().unwrap())).ceil() as usize, 1));
                 self.mover.tabu_ids_vecdeque_map.insert(group_name.clone(), VecDeque::new());
             }
@@ -114,7 +111,7 @@ where ScoreType: ScoreTrait + Clone + AddAssign + PartialEq + PartialOrd + Ord +
         if self.mover.tabu_entity_size_map.len() == 0 {
             let semantic_groups_map = variables_manager.semantic_groups_map.clone();
             for (group_name, group_ids) in semantic_groups_map {
-                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::new());
+                self.mover.tabu_ids_sets_map.insert(group_name.clone(), HashSet::default());
                 self.mover.tabu_entity_size_map.insert(group_name.clone(), max((self.tabu_entity_rate * (group_ids.len().to_f64().unwrap())).ceil() as usize, 1));
                 self.mover.tabu_ids_vecdeque_map.insert(group_name.clone(), VecDeque::new());
             }

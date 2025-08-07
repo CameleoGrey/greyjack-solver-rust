@@ -3,7 +3,7 @@
 [package]
 name = "greyjack"
 edition = "2021"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["CameleoGrey (Egor Chnegov) <cameleogrey@yandex.ru>"]
 repository = "https://github.com/CameleoGrey/greyjack-solver-rust/"
 documentation = "https://github.com/CameleoGrey/greyjack-solver-rust/"
@@ -36,9 +36,9 @@ slotmap = "1.0"
 thiserror = "1.0"
 crossbeam-deque = "0.8.6"
 
-#[profile.release]
+[profile.release]
 #lto = true
 #codegen-units = 1
-#debug = true
+debug = true
 #opt-level = 3
 #rustflags = ["-C", "target-cpu=native"]

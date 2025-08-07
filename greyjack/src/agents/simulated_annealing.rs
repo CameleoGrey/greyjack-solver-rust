@@ -14,6 +14,7 @@ use std::ops::{AddAssign, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 use crate::score_calculation::greynet::InitializableFact;
+use rustc_hash::FxHashMap;
 
 
 #[derive(Clone)]
@@ -25,7 +26,8 @@ where
     tabu_entity_rate: f64,
     mutation_rate_multiplier: Option<f64>,
     move_probas: Option<Vec<f64>>,
-    migration_frequency: usize, 
+    migration_frequency: usize,
+    compare_with_global_frequency: usize,
     termination_strategy: TerminationStrategiesVariants<ScoreType>
 }
 
@@ -40,6 +42,7 @@ where
         mutation_rate_multiplier: Option<f64>,
         move_probas: Option<Vec<f64>>,
         migration_frequency: usize, 
+        compare_with_global_frequency: usize,
         termination_strategy: TerminationStrategiesVariants<ScoreType>
     ) -> Self {
 
@@ -50,6 +53,7 @@ where
             mutation_rate_multiplier: mutation_rate_multiplier,
             move_probas: move_probas,
             migration_frequency: migration_frequency, 
+            compare_with_global_frequency: compare_with_global_frequency,
             termination_strategy: termination_strategy
         }
     }
@@ -90,13 +94,14 @@ where
                 discrete_ids = sr_df.variables_manager.discrete_ids.clone();
             }
         }
-
+        
+        let semantic_groups_dict: FxHashMap<String, Vec<usize>> = semantic_groups_dict.into_iter().collect();
         let metaheuristic_base = SimulatedAnnealingBase::new(self.initial_temperature.clone(), self.cooling_rate, self.tabu_entity_rate,
                                                                                  self.mutation_rate_multiplier, self.move_probas.clone(),
                                                                                  semantic_groups_dict, discrete_ids);
         let metaheuristic_base = MetaheuristicsBasesVariants::SAB(metaheuristic_base);
         
-        let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(1.0, 
+        let agent: Agent<EntityVariants, UtilityObjectVariants, ScoreType> = Agent::new(1.0, Some(self.compare_with_global_frequency),
                                                                                         self.migration_frequency, self.termination_strategy.clone(), 
                                                                                         1, score_requester, 
                                                                                         metaheuristic_base);
