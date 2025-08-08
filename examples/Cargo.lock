@@ -571,6 +571,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_balancing"
+version = "0.4.5"
+dependencies = [
+ "greyjack",
+ "polars",
+ "rand 0.9.2",
+ "rayon",
+ "serde_json",
+]
+
+[[package]]
 name = "cms"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1253,7 +1264,7 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
 name = "greyjack"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "chrono",
  "crossbeam-channel",

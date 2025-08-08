@@ -8,7 +8,7 @@ members = [
     "vrp_service",
     "demo_1",
     "stress_zero"
-]
+, "cloud_balancing"]
 
 [profile.release]
 #lto = true

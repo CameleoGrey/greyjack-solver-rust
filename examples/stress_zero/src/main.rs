@@ -1,5 +1,6 @@
 use greyjack::score_calculation::greynet::prelude::*;
-use greyjack::score_calculation::greynet::tuple::ZeroCopyFacts; // Import the necessary zero-copy trait
+use greyjack::score_calculation::greynet::tuple::ZeroCopyFacts;
+use greyjack::score_calculation::greynet::stream_def::{extract_fact, key};
 use greyjack::score_calculation::greynet::Collectors;
 use greyjack::score_calculation::scores::SimpleScore;
 use greyjack::greynet_fact_for_struct;
@@ -68,8 +69,7 @@ greynet_fact_for_struct!(Customer);
 greynet_fact_for_struct!(Transaction);
 greynet_fact_for_struct!(SecurityAlert);
 
-
-// --- Modern API Constraint Definitions (Unchanged) ---
+// --- Modern API Constraint Definitions with Universal Join API ---
 
 fn build_constraints() -> Result<Session<SimpleScore>> {
     // Setup with optimized limits
@@ -84,81 +84,89 @@ fn build_constraints() -> Result<Session<SimpleScore>> {
     // Use the modern builder from the prelude
     let mut builder = builder_with_limits::<SimpleScore>(limits);
 
-    // Constraint 1: Penalize high-value transactions.
+    // Constraint 1: Penalize high-value transactions using new filter API
     builder.add_constraint("high_value_transaction", 1.0)
         .for_each::<Transaction>()
-        .filter(|tx: &Transaction| tx.amount > 45000.0)
-        .penalize(|tuple: &dyn ZeroCopyFacts| {
+        .filter(|tuple| {
+            extract_fact::<Transaction>(tuple, 0)
+                .map_or(false, |tx| tx.amount > 45000.0)
+        })
+        .penalize(|tuple| {
             let tx = extract_fact::<Transaction>(tuple, 0).unwrap();
             SimpleScore::new(tx.amount / 1000.0)
         });
 
-    // Constraint 2: Penalize customers with an excessive number of transactions.
+    // Constraint 2: Penalize customers with excessive transactions using new group_by API
     builder.add_constraint("excessive_transactions_per_customer", 1.0)
         .for_each::<Transaction>()
         .group_by(
-            |tx: &Transaction| tx.customer_id, // Group transactions by customer
-            Collectors::count(),                // Count transactions in each group
+            key::first::<Transaction, _, _>(|tx| tx.customer_id), // Use new key extraction
+            Collectors::count(),
         )
-        .filter_tuple(|tuple: &dyn ZeroCopyFacts| {
+        .filter(|tuple| {
             extract_fact::<usize>(tuple, 1)
                  .map_or(false, |count| *count > 25)
         })
-        .penalize(|tuple: &dyn ZeroCopyFacts| {
-            // The tuple is a BiTuple<(u64_key, usize_count)>.
+        .penalize(|tuple| {
+            // The tuple is a BiTuple<(customer_id, count)>
             let count = extract_fact::<usize>(tuple, 1).unwrap();
             SimpleScore::new((*count as f64 - 25.0) * 10.0)
         });
 
-    // Create reusable streams for joins. `builder.for_each()` is non-consuming.
+    // Create reusable streams for joins using builder.for_each() (non-consuming)
     let tx_stream = builder.for_each::<Transaction>();
     let alerts_stream = builder.for_each::<SecurityAlert>();
 
-    // Constraint 3: Penalize transactions occurring in locations with security alerts.
+    // Constraint 3: Penalize transactions in alerted locations using universal join API
     builder.add_constraint("transaction_in_alerted_location", 1.0)
         .for_each::<Transaction>()
         .join_on(
             alerts_stream.clone(), // Clone the stream definition for reuse
-            |tx: &Transaction| tx.location.clone(),
-            |alert: &SecurityAlert| alert.location.clone(),
+            key::first::<Transaction, _, _>(|tx| tx.location.clone()),
+            key::first::<SecurityAlert, _, _>(|alert| alert.location.clone()),
         )
-        .penalize(|tuple: &dyn ZeroCopyFacts| {
-            // The tuple is a BiTuple<(Transaction, SecurityAlert)>.
+        .penalize(|tuple| {
+            // The tuple is a BiTuple<(Transaction, SecurityAlert)>
             let alert = extract_fact::<SecurityAlert>(tuple, 1).unwrap();
             SimpleScore::new(100.0 * alert.severity as f64)
         });
 
-    // Constraint 4: Penalize transactions made by inactive customers.
+    // Constraint 4: Penalize transactions by inactive customers using universal join API
     builder.add_constraint("inactive_customer_transaction", 1.0)
         .for_each::<Customer>()
-        .filter(|c: &Customer| matches!(c.status, CustomerStatus::Inactive))
+        .filter(|tuple| {
+            extract_fact::<Customer>(tuple, 0)
+                .map_or(false, |c| matches!(c.status, CustomerStatus::Inactive))
+        })
         .join_on(
             tx_stream.clone(),
-            |c: &Customer| c.id,
-            |tx: &Transaction| tx.customer_id,
+            key::first::<Customer, _, _>(|c| c.id),
+            key::first::<Transaction, _, _>(|tx| tx.customer_id),
         )
         .penalize(|_| SimpleScore::new(500.0));
 
-    // Constraint 5: Penalize transactions from high-risk customers in locations *without* alerts.
+    // Constraint 5: High-risk transactions without alerts using universal conditional join
     builder.add_constraint("high_risk_transaction_without_alert", 1.0)
         .for_each::<Customer>()
-        .filter(|c: &Customer| matches!(c.risk_level, RiskLevel::High))
+        .filter(|tuple| {
+            extract_fact::<Customer>(tuple, 0)
+                .map_or(false, |c| matches!(c.risk_level, RiskLevel::High))
+        })
         .join_on(
             tx_stream.clone(), // Reuse the transaction stream
-            |c: &Customer| c.id,
-            |tx: &Transaction| tx.customer_id,
+            key::first::<Customer, _, _>(|c| c.id),
+            key::first::<Transaction, _, _>(|tx| tx.customer_id),
         )
-        // After the join, the stream contains (Customer, Transaction) tuples.
-        // We check for the non-existence of an alert based on the transaction's location.
-        .if_not_exists_on_indexed(
+        // After the join, the stream contains (Customer, Transaction) tuples
+        // Check for non-existence of alerts based on transaction location
+        .if_not_exists(
             alerts_stream.clone(), // Reuse the alerts stream
-            1,                     // Index of Transaction in the (Customer, Transaction) stream
-            |tx: &Transaction| tx.location.clone(), // Key from the second fact (Transaction)
-            |alert: &SecurityAlert| alert.location.clone(), // Key from the "other" stream
+            key::at::<Transaction, _, _>(1, |tx| tx.location.clone()), // Key from Transaction at position 1
+            key::first::<SecurityAlert, _, _>(|alert| alert.location.clone()), // Key from alerts
         )
         .penalize(|_| SimpleScore::new(1000.0));
 
-    // Build the session from all the defined constraints.
+    // Build the session from all the defined constraints
     builder.build()
 }
 
@@ -217,10 +225,10 @@ fn generate_data(
     (customers, transactions, alerts)
 }
 
-// --- Performance Testing (Unchanged) ---
+// --- Enhanced Performance Testing with Universal Join Metrics ---
 
 fn run_performance_benchmark() -> Result<()> {
-    println!("### Starting Modern Fluent API Performance Test ###");
+    println!("### Starting Modern Universal Join API Performance Test ###");
 
     // Configuration
     const NUM_CUSTOMERS: usize = 10_000;
@@ -229,7 +237,7 @@ fn run_performance_benchmark() -> Result<()> {
 
     // 1. Setup Phase
     let setup_start = Instant::now();
-    let mut session = build_constraints()?; // <-- Use the rewritten function
+    let mut session = build_constraints()?; // <-- Use the rewritten function with universal joins
     let setup_duration = setup_start.elapsed();
 
     // 2. Data Generation Phase
@@ -253,7 +261,7 @@ fn run_performance_benchmark() -> Result<()> {
              alerts.len(), NUM_LOCATIONS, alerts.len() as f64 / NUM_LOCATIONS as f64 * 100.0);
 
     // 3. Processing Phase
-    println!("Processing facts using modern fluent API...");
+    println!("Processing facts using Universal Join API...");
     let processing_start = Instant::now();
 
     session.insert_batch(customers)?;
@@ -286,19 +294,19 @@ fn run_performance_benchmark() -> Result<()> {
     // 5. Get detailed statistics
     let stats = session.get_statistics();
 
-    // 6. Comprehensive reporting
-    println!("\n=== MODERN FLUENT API PERFORMANCE RESULTS ===");
+    // 6. Comprehensive reporting with Universal Join emphasis
+    println!("\n=== UNIVERSAL JOIN API PERFORMANCE RESULTS ===");
     
-    println!("\n🚀 Performance Metrics:");
+    println!("\n🚀 Universal Join Performance Metrics:");
     println!("┌─────────────────────────────────┬─────────────────────┐");
     println!("│ Metric                          │ Value               │");
     println!("├─────────────────────────────────┼─────────────────────┤");
     println!("│ Total Facts Processed          │ {:>19} │", format!("{:}", total_facts));
-    println!("│ Setup Time                      │ {:>15.4} s │", setup_duration.as_secs_f64());
+    println!("│ Universal API Setup Time        │ {:>15.4} s │", setup_duration.as_secs_f64());
     println!("│ Data Generation Time            │ {:>15.4} s │", data_gen_duration.as_secs_f64());
-    println!("│ **Processing Time** │ **{:>11.4} s** │", processing_duration.as_secs_f64());
+    println!("│ **Universal Join Processing** │ **{:>11.4} s** │", processing_duration.as_secs_f64());
     println!("│ Total Time                      │ {:>15.4} s │", total_duration.as_secs_f64());
-    println!("│ **Throughput** │ **{:>9.0} facts/s** │", facts_per_second);
+    println!("│ **Universal Join Throughput** │ **{:>9.0} facts/s** │", facts_per_second);
     println!("│ Memory Efficiency               │ {:>11.0} facts/MB │", memory_efficiency);
     println!("└─────────────────────────────────┴─────────────────────┘");
 
@@ -312,11 +320,11 @@ fn run_performance_benchmark() -> Result<()> {
     println!("│ Dead/Pooled Tuples              │ {:>19} │", format!("{:}", stats.arena_stats.dead_tuples));
     println!("└─────────────────────────────────┴─────────────────────┘");
 
-    println!("\n🎯 Constraint Results:");
+    println!("\n🎯 Universal Join Constraint Results:");
     println!("• **Final Score:** {:?}", final_score);
     
     let total_matches: usize = constraint_matches.values().map(|v| v.len()).sum();
-    println!("• **Total Constraint Violations:** {}", format!("{:}", total_matches));
+    println!("• **Total Universal Join Violations:** {}", format!("{:}", total_matches));
     
     for (constraint_id, matches) in constraint_matches.iter() {
         let percentage = if total_facts > 0 {
@@ -324,25 +332,54 @@ fn run_performance_benchmark() -> Result<()> {
         } else {
             0.0
         };
-        println!("  ├─ `{}`: {} violations ({:.3}%)", 
-                 constraint_id, format!("{:}", matches.len()), percentage);
+        
+        // Add API type annotations
+        let api_type = match constraint_id.as_str() {
+            "high_value_transaction" => "Universal Filter",
+            "excessive_transactions_per_customer" => "Universal Group-By",
+            "transaction_in_alerted_location" => "Universal Join",
+            "inactive_customer_transaction" => "Universal Join + Filter",
+            "high_risk_transaction_without_alert" => "Universal Conditional Join",
+            _ => "Universal API",
+        };
+        
+        println!("  ├─ `{}` [{}]: {} violations ({:.3}%)", 
+                 constraint_id, api_type, format!("{:}", matches.len()), percentage);
     }
 
-    println!("\n🏗️ Network Statistics:");
+    println!("\n🏗️ Universal Join Network Statistics:");
     println!("• **Total Nodes:** {}", stats.total_nodes);
     println!("• **Scoring Nodes:** {}", stats.scoring_nodes);
-    println!("• **Network Efficiency:** {:.2} facts per node", 
+    println!("• **Universal Join Efficiency:** {:.2} facts per node", 
              if stats.total_nodes > 0 { total_facts as f64 / stats.total_nodes as f64 } else { 0.0 });
+
+    // 8. Performance comparison notes
+    let constraint_complexity = constraint_matches.len();
+    let avg_violations_per_constraint = if constraint_complexity > 0 {
+        total_matches as f64 / constraint_complexity as f64
+    } else {
+        0.0
+    };
+    
+    println!("\n📊 Universal Join Complexity Metrics:");
+    println!("• **Constraint Complexity:** {} different constraint types", constraint_complexity);
+    println!("• **Average Violations per Constraint:** {:.1}", avg_violations_per_constraint);
+    println!("• **Join Operations per Second:** {:.0}", 
+             if processing_duration.as_secs_f64() > 0.0 { 
+                 total_matches as f64 / processing_duration.as_secs_f64() 
+             } else { 
+                 f64::INFINITY 
+             });
 
     // 8. Validate system consistency
     session.validate_consistency()?;
-    println!("\n✅ **System consistency validation passed!**");
+    println!("\n✅ **Universal Join System consistency validation passed!**");
 
     Ok(())
 }
 
 fn main() -> Result<()> {
-    // Run main performance benchmark
+    // Run main performance benchmark with Universal Join API
     run_performance_benchmark()?;
     
     Ok(())

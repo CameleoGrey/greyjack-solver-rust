@@ -1,4 +1,4 @@
-// stream_def.rs - Complete enhanced implementation with performance fixes
+// stream_def.rs - Complete enhanced implementation with universal join system
 
 use super::factory::ConstraintFactory;
 use super::joiner::JoinerType;
@@ -497,6 +497,77 @@ pub fn extract_fact<T: GreynetFact>(tuple: &dyn ZeroCopyFacts, index: usize) -> 
     tuple.get_fact_ref(index).and_then(|fact| fact.as_any().downcast_ref::<T>())
 }
 
+// Universal key extraction helpers
+pub mod key_extractors {
+    use super::*;
+    
+    /// Extract a fact at a specific index and apply a key function
+    pub fn at_index<T, K, F>(index: usize, key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    where
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
+    {
+        move |tuple| {
+            extract_fact::<T>(tuple, index).map(|fact| key_fn(fact))
+        }
+    }
+    
+    /// Extract the first fact of type T
+    pub fn first<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    where
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
+    {
+        at_index(0, key_fn)
+    }
+    
+    /// Extract the second fact of type T
+    pub fn second<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    where
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
+    {
+        at_index(1, key_fn)
+    }
+    
+    /// Extract multiple facts and create a composite key
+    pub fn composite<F, K>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    where
+        F: Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static,
+        K: Hash + 'static,
+    {
+        key_fn
+    }
+    
+    /// Extract facts by type, searching all positions
+    pub fn by_type<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    where
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
+    {
+        move |tuple| {
+            // Search through all positions to find a fact of type T
+            for i in 0..tuple.arity() {
+                if let Some(fact) = extract_fact::<T>(tuple, i) {
+                    return Some(key_fn(fact));
+                }
+            }
+            None
+        }
+    }
+    
+    /// Convert an Option-returning key function to a required one with default
+    pub fn with_default<K: Hash + Default + 'static>(
+        key_fn: impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+    ) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static {
+        move |tuple| key_fn(tuple).unwrap_or_default()
+    }
+}
+
 #[derive(Clone)]
 pub struct Stream<A, S: ScoreTrait> {
     pub(super) definition: StreamDefinition<S>,
@@ -515,23 +586,208 @@ impl<A, S: ScoreTrait + 'static> Stream<A, S> {
         Self { definition, factory, constraint_id_context: context, _arity: PhantomData, _score: PhantomData }
     }
 
-    fn if_conditionally<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, should_exist: bool, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
+    // UNIVERSAL JOIN OPERATIONS
+    
+    /// Universal join that works for any arity combinations
+    pub fn join_on_universal<OtherArity, K, F1, F2>(
+        self, 
+        other: Stream<OtherArity, S>, 
+        joiner_type: JoinerType,
+        left_key_fn: F1, 
+        right_key_fn: F2
+    ) -> Stream<Arity2, S> // For now, always return combined arity as Arity2 for simplicity
+    where
+        K: Hash + 'static,
+        F1: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        F2: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+    {
         let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
         let mut factory = factory_rc.borrow_mut();
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
+        
+        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut hasher = DefaultHasher::new();
+            left_key_fn(tuple).hash(&mut hasher);
+            hasher.finish()
+        });
+        
+        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut hasher = DefaultHasher::new();
+            right_key_fn(tuple).hash(&mut hasher);
+            hasher.finish()
+        });
+        
         let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
         let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
-        let cond_def = ConditionalJoinDefinition::new(self.definition, other.definition, should_exist, FunctionId(left_key_id), FunctionId(right_key_id));
-        Self::new_with_context(StreamDefinition::ConditionalJoin(cond_def), self.factory, self.constraint_id_context)
+        
+        let join_def = JoinDefinition::new(
+            self.definition, 
+            other.definition, 
+            joiner_type, 
+            FunctionId(left_key_id), 
+            FunctionId(right_key_id)
+        );
+        
+        Stream::new_with_context(
+            StreamDefinition::Join(join_def), 
+            self.factory, 
+            self.constraint_id_context
+        )
     }
+    
+    /// Convenience method for equality joins
+    pub fn join_on<OtherArity, K, F1, F2>(
+        self, 
+        other: Stream<OtherArity, S>, 
+        left_key_fn: F1, 
+        right_key_fn: F2
+    ) -> Stream<Arity2, S>
+    where
+        K: Hash + 'static,
+        F1: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        F2: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+    {
+        self.join_on_universal(other, JoinerType::Equal, left_key_fn, right_key_fn)
+    }
+
+    pub fn join_on_group_key<OtherArity, K, F>(
+        self,
+        other: Stream<OtherArity, S>,
+        right_key_fn: F,
+    ) -> Stream<Arity2, S>
+    where
+        K: Hash + 'static,
+        F: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        A: Clone,
+    {
+        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
+        let mut factory = factory_rc.borrow_mut();
+
+        // The key from the grouped stream is already a u64 hash.
+        // We just need to extract it. It's the first fact in the BiTuple.
+        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            extract_fact::<u64>(tuple, 0)
+                .copied()
+                .expect("Required fact of type u64 (the group key) not found at position 0")
+        });
+
+        // The key from the other stream needs to be extracted and then hashed.
+        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut hasher = DefaultHasher::new();
+            right_key_fn(tuple).hash(&mut hasher);
+            hasher.finish()
+        });
+
+        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
+        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
+
+        let join_def = JoinDefinition::new(
+            self.definition,
+            other.definition,
+            JoinerType::Equal,
+            FunctionId(left_key_id),
+            FunctionId(right_key_id),
+        );
+
+        Stream::new_with_context(
+            StreamDefinition::Join(join_def),
+            self.factory,
+            self.constraint_id_context,
+        )
+    }
+    
+    /// Conditional join (if_exists/if_not_exists) that works universally
+    pub fn if_conditionally_universal<OtherArity, K, F1, F2>(
+        self,
+        other: Stream<OtherArity, S>,
+        should_exist: bool,
+        left_key_fn: F1,
+        right_key_fn: F2,
+    ) -> Self
+    where
+        K: Hash + 'static,
+        F1: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        F2: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+    {
+        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
+        let mut factory = factory_rc.borrow_mut();
+        
+        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut hasher = DefaultHasher::new();
+            left_key_fn(tuple).hash(&mut hasher);
+            hasher.finish()
+        });
+        
+        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut hasher = DefaultHasher::new();
+            right_key_fn(tuple).hash(&mut hasher);
+            hasher.finish()
+        });
+        
+        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
+        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
+        
+        let cond_def = ConditionalJoinDefinition::new(
+            self.definition,
+            other.definition,
+            should_exist,
+            FunctionId(left_key_id),
+            FunctionId(right_key_id),
+        );
+        
+        Self::new_with_context(
+            StreamDefinition::ConditionalJoin(cond_def),
+            self.factory,
+            self.constraint_id_context,
+        )
+    }
+    
+    /// Universal if_exists
+    pub fn if_exists<OtherArity, K, F1, F2>(
+        self,
+        other: Stream<OtherArity, S>,
+        left_key_fn: F1,
+        right_key_fn: F2,
+    ) -> Self
+    where
+        K: Hash + 'static,
+        F1: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        F2: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+    {
+        self.if_conditionally_universal(other, true, left_key_fn, right_key_fn)
+    }
+    
+    /// Universal if_not_exists
+    pub fn if_not_exists<OtherArity, K, F1, F2>(
+        self,
+        other: Stream<OtherArity, S>,
+        left_key_fn: F1,
+        right_key_fn: F2,
+    ) -> Self
+    where
+        K: Hash + 'static,
+        F1: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        F2: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+    {
+        self.if_conditionally_universal(other, false, left_key_fn, right_key_fn)
+    }
+
+    // OTHER STREAM OPERATIONS
 
     fn group_by_flex(self, key_fn: ZeroCopyKeyFn, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S> {
         let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
         let key_fn_id = factory_rc.borrow_mut().register_zero_copy_key_fn(key_fn);
         let group_def = GroupDefinition::new(self.definition, FunctionId(key_fn_id), CollectorSupplier::new(collector_supplier));
         Stream::new_with_context(StreamDefinition::Group(group_def), self.factory, self.constraint_id_context)
+    }
+
+    pub fn group_by<K, F>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
+    where F: Fn(&dyn ZeroCopyFacts) -> K + 'static, K: Hash + 'static, {
+        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| {
+            let mut h = DefaultHasher::new();
+            key_fn(tuple).hash(&mut h);
+            h.finish()
+        });
+        self.group_by_flex(zero_copy_key_fn, collector_supplier)
     }
 
     fn flat_map_flex<F>(self, mapper: F) -> Stream<Arity1, S>
@@ -543,6 +799,13 @@ impl<A, S: ScoreTrait + 'static> Stream<A, S> {
         let mapper_fn_id = factory_rc.borrow_mut().register_zero_copy_mapper(zero_copy_mapper);
         let flatmap_def = FlatMapDefinition::new(self.definition, FunctionId(mapper_fn_id));
         Stream::new_with_context(StreamDefinition::FlatMap(flatmap_def), self.factory, self.constraint_id_context)
+    }
+
+    pub fn flat_map<F>(self, mapper: F) -> Stream<Arity1, S>
+    where
+        F: Fn(&dyn ZeroCopyFacts) -> Vec<Rc<dyn GreynetFact>> + 'static,
+    {
+        self.flat_map_flex(mapper)
     }
 
     // Map operation for tuple transformation
@@ -566,6 +829,28 @@ impl<A, S: ScoreTrait + 'static> Stream<A, S> {
         
         let map_def = MapDefinition::new(self.definition, FunctionId(mapper_fn_id), target_arity);
         Stream::new_with_context(StreamDefinition::Map(map_def), self.factory, self.constraint_id_context)
+    }
+
+    // Map operations for different target arities
+    pub fn map<F>(self, mapper: F) -> Stream<Arity1, S>
+    where
+        F: Fn(&dyn ZeroCopyFacts) -> Rc<dyn GreynetFact> + 'static,
+    {
+        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
+            AnyTuple::Uni(super::tuple::UniTuple::new(mapper(tuple)))
+        };
+        self.map_flex::<_, Arity1>(adapted_mapper)
+    }
+
+    pub fn map_to_pair<F>(self, mapper: F) -> Stream<Arity2, S>
+    where
+        F: Fn(&dyn ZeroCopyFacts) -> (Rc<dyn GreynetFact>, Rc<dyn GreynetFact>) + 'static,
+    {
+        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
+            let (a, b) = mapper(tuple);
+            AnyTuple::Bi(super::tuple::BiTuple::new(a, b))
+        };
+        self.map_flex::<_, Arity2>(adapted_mapper)
     }
 
     // Union operation for merging streams
@@ -601,359 +886,279 @@ impl<A, S: ScoreTrait + 'static> Stream<A, S> {
         recipe
     }
     
-    pub fn filter_tuple<F>(self, predicate: F) -> Self where F: Fn(&dyn ZeroCopyFacts) -> bool + 'static, {
+    pub fn filter<F>(self, predicate: F) -> Self 
+    where F: Fn(&dyn ZeroCopyFacts) -> bool + 'static, 
+    {
         let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
         let zero_copy_predicate: ZeroCopyPredicate = Rc::new(predicate);
         let predicate_id = factory_rc.borrow_mut().register_zero_copy_predicate(zero_copy_predicate);
         let filter_def = FilterDefinition::new(self.definition, FunctionId(predicate_id));
         Self::new_with_context(StreamDefinition::Filter(filter_def), self.factory, self.constraint_id_context)
     }
+}
 
-    pub fn filter<T, F>(self, predicate: F) -> Self where T: GreynetFact, F: Fn(&T) -> bool + 'static, {
-        let adapted_predicate = move |tuple: &dyn ZeroCopyFacts| {
-            extract_fact::<T>(tuple, 0).map_or(false, |fact| predicate(fact))
-        };
-        self.filter_tuple(adapted_predicate)
+// Convenience macros for common join patterns
+#[macro_export]
+macro_rules! join_on_fact {
+    ($stream:expr, $other:expr, $left_type:ty, $left_idx:expr, $left_key:expr, $right_type:ty, $right_idx:expr, $right_key:expr) => {
+        $stream.join_on(
+            $other,
+            key_extractors::with_default(key_extractors::at_index::<$left_type, _, _>($left_idx, $left_key)),
+            key_extractors::with_default(key_extractors::at_index::<$right_type, _, _>($right_idx, $right_key)),
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! join_on_first {
+    ($stream:expr, $other:expr, $left_type:ty, $left_key:expr, $right_type:ty, $right_key:expr) => {
+        $stream.join_on(
+            $other,
+            key_extractors::with_default(key_extractors::first::<$left_type, _, _>($left_key)),
+            key_extractors::with_default(key_extractors::first::<$right_type, _, _>($right_key)),
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! if_exists_on_first {
+    ($stream:expr, $other:expr, $left_type:ty, $left_key:expr, $right_type:ty, $right_key:expr) => {
+        $stream.if_exists(
+            $other,
+            key_extractors::with_default(key_extractors::first::<$left_type, _, _>($left_key)),
+            key_extractors::with_default(key_extractors::first::<$right_type, _, _>($right_key)),
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! if_not_exists_on_first {
+    ($stream:expr, $other:expr, $left_type:ty, $left_key:expr, $right_type:ty, $right_key:expr) => {
+        $stream.if_not_exists(
+            $other,
+            key_extractors::with_default(key_extractors::first::<$left_type, _, _>($left_key)),
+            key_extractors::with_default(key_extractors::first::<$right_type, _, _>($right_key)),
+        )
+    };
+}
+
+// Simplified key extraction system - no more monstrous constructions!
+
+// APPROACH 1: Direct convenience functions that return required keys
+pub mod key {
+    use super::*;
+    
+    /// Extract key from first fact of type T (panics if missing - use for required facts)
+    pub fn first<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+    where
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
+    {
+        move |tuple| {
+            extract_fact::<T>(tuple, 0)
+                .map(|fact| key_fn(fact))
+                .expect("Required fact not found at position 0")
+        }
     }
     
-    pub(super) fn join_flex(self, other: Stream<Arity1, S>, joiner_type: JoinerType, left_key_fn: ZeroCopyKeyFn, right_key_fn: ZeroCopyKeyFn) -> Stream<Arity2, S> {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_key_fn_id = factory.register_zero_copy_key_fn(left_key_fn);
-        let right_key_fn_id = factory.register_zero_copy_key_fn(right_key_fn);
-        let join_def = JoinDefinition::new(self.definition, other.definition, joiner_type, FunctionId(left_key_fn_id), FunctionId(right_key_fn_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
-
-    // Advanced join with custom comparator
-    pub(super) fn join_with_comparator_flex(self, other: Stream<A, S>, joiner_type: JoinerType, left_key_fn: ZeroCopyKeyFn, right_key_fn: ZeroCopyKeyFn) -> Stream<Arity2, S> {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_key_fn_id = factory.register_zero_copy_key_fn(left_key_fn);
-        let right_key_fn_id = factory.register_zero_copy_key_fn(right_key_fn);
-        let join_def = JoinDefinition::new(self.definition, other.definition, joiner_type, FunctionId(left_key_fn_id), FunctionId(right_key_fn_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
-}
-
-impl<S: ScoreTrait + 'static> Stream<Arity1, S> {
-    pub fn join_on<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity2, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        self.join_flex(other, JoinerType::Equal, left_zc_key, right_zc_key)
-    }
-
-    // Join with custom comparator  
-    pub fn join_on_with_comparator<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, joiner_type: JoinerType, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity2, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        self.join_flex(other, joiner_type, left_zc_key, right_zc_key)
-    }
-
-    pub fn if_exists<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, true, 0, left_key_fn, right_key_fn)
-    }
-
-    pub fn if_not_exists<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, false, 0, left_key_fn, right_key_fn)
-    }
-
-    pub fn group_by<T, F, K>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
-    where T: GreynetFact, F: Fn(&T) -> K + 'static, K: Hash + 'static, {
-        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); key_fn(fact).hash(&mut h); h.finish() }));
-        self.group_by_flex(zero_copy_key_fn, collector_supplier)
-    }
-
-    pub fn flat_map<T, F>(self, mapper: F) -> Stream<Arity1, S>
+    /// Extract key from second fact of type T
+    pub fn second<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
     where
         T: GreynetFact,
-        F: Fn(&T) -> Vec<Rc<dyn GreynetFact>> + 'static,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
     {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            extract_fact::<T>(tuple, 0).map_or_else(Vec::new, |fact| mapper(fact))
-        };
-        self.flat_map_flex(adapted_mapper)
-    }
-
-    // Map operations for different target arities
-    pub fn map<T, F>(self, mapper: F) -> Stream<Arity1, S>
-    where
-        T: GreynetFact,
-        F: Fn(&T) -> Rc<dyn GreynetFact> + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            if let Some(fact) = extract_fact::<T>(tuple, 0) {
-                AnyTuple::Uni(super::tuple::UniTuple::new(mapper(fact)))
-            } else {
-                tuple.as_any().downcast_ref::<AnyTuple>().unwrap().clone()
-            }
-        };
-        self.map_flex::<_, Arity1>(adapted_mapper)
-    }
-
-    pub fn map_to_pair<T, F>(self, mapper: F) -> Stream<Arity2, S>
-    where
-        T: GreynetFact,
-        F: Fn(&T) -> (Rc<dyn GreynetFact>, Rc<dyn GreynetFact>) + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            if let Some(fact) = extract_fact::<T>(tuple, 0) {
-                let (a, b) = mapper(fact);
-                AnyTuple::Bi(super::tuple::BiTuple::new(a, b))
-            } else {
-                tuple.as_any().downcast_ref::<AnyTuple>().unwrap().clone()
-            }
-        };
-        self.map_flex::<_, Arity2>(adapted_mapper)
-    }
-}
-
-impl<S: ScoreTrait + 'static> Stream<Arity2, S> {
-    pub fn join_on_first<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity3, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.join_on_indexed(other, 0, left_key_fn, right_key_fn)
+        move |tuple| {
+            extract_fact::<T>(tuple, 1)
+                .map(|fact| key_fn(fact))
+                .expect("Required fact not found at position 1")
+        }
     }
     
-    pub fn join_on_second<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity3, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.join_on_indexed(other, 1, left_key_fn, right_key_fn)
-    }
-
-    pub fn join_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity3, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
-        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
-        let join_def = JoinDefinition::new(self.definition, other.definition, JoinerType::Equal, FunctionId(left_key_id), FunctionId(right_key_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
-
-    // Join two multi-arity streams
-    pub fn join_with<Other, T1, T2, F1, F2, K>(self, other: Stream<Other, S>, left_fact_index: usize, right_fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity3, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, left_fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, right_fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
-        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
-        let join_def = JoinDefinition::new(self.definition, other.definition, JoinerType::Equal, FunctionId(left_key_id), FunctionId(right_key_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
-
-    pub fn if_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, true, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn if_not_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, false, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn group_by_tuple<F, K>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
-    where F: Fn(&dyn ZeroCopyFacts) -> K + 'static, K: Hash + 'static, {
-        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| {
-            let mut h = DefaultHasher::new();
-            key_fn(tuple).hash(&mut h);
-            h.finish()
-        });
-        self.group_by_flex(zero_copy_key_fn, collector_supplier)
-    }
-
-    pub fn flat_map_tuple<F>(self, mapper: F) -> Stream<Arity1, S>
+    /// Extract key from fact at specific index
+    pub fn at<T, K, F>(index: usize, key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
     where
-        F: Fn(&dyn ZeroCopyFacts) -> Vec<Rc<dyn GreynetFact>> + 'static,
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
     {
-        self.flat_map_flex(mapper)
+        move |tuple| {
+            extract_fact::<T>(tuple, index)
+                .map(|fact| key_fn(fact))
+                .unwrap_or_else(|| panic!("Required fact not found at position {}", index))
+        }
     }
-
-    // Map operations for tuples
-    pub fn map_tuple<F>(self, mapper: F) -> Stream<Arity2, S>
-    where
-        F: Fn(&dyn ZeroCopyFacts) -> (Rc<dyn GreynetFact>, Rc<dyn GreynetFact>) + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            let (a, b) = mapper(tuple);
-            AnyTuple::Bi(super::tuple::BiTuple::new(a, b))
-        };
-        self.map_flex::<_, Arity2>(adapted_mapper)
+    
+    /// Safe versions that return Option (for optional facts)
+    pub mod optional {
+        use super::*;
+        
+        pub fn first<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+        where
+            T: GreynetFact,
+            K: Hash + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| extract_fact::<T>(tuple, 0).map(|fact| key_fn(fact))
+        }
+        
+        pub fn at<T, K, F>(index: usize, key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> Option<K> + 'static
+        where
+            T: GreynetFact,
+            K: Hash + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| extract_fact::<T>(tuple, index).map(|fact| key_fn(fact))
+        }
     }
-
-    pub fn map_to_single<F>(self, mapper: F) -> Stream<Arity1, S>
+    
+    /// Versions with default values (for facts that might be missing)
+    pub mod with_default {
+        use super::*;
+        
+        pub fn first<T, K, F>(key_fn: F, default: K) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+        where
+            T: GreynetFact,
+            K: Hash + Clone + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| {
+                extract_fact::<T>(tuple, 0)
+                    .map(|fact| key_fn(fact))
+                    .unwrap_or_else(|| default.clone())
+            }
+        }
+        
+        pub fn at<T, K, F>(index: usize, key_fn: F, default: K) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+        where
+            T: GreynetFact,
+            K: Hash + Clone + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| {
+                extract_fact::<T>(tuple, index)
+                    .map(|fact| key_fn(fact))
+                    .unwrap_or_else(|| default.clone())
+            }
+        }
+    }
+    
+    /// For Default types, automatically use Default::default()
+    pub mod auto_default {
+        use super::*;
+        
+        pub fn first<T, K, F>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+        where
+            T: GreynetFact,
+            K: Hash + Default + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| {
+                extract_fact::<T>(tuple, 0)
+                    .map(|fact| key_fn(fact))
+                    .unwrap_or_default()
+            }
+        }
+        
+        pub fn at<T, K, F>(index: usize, key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+        where
+            T: GreynetFact,
+            K: Hash + Default + 'static,
+            F: Fn(&T) -> K + 'static,
+        {
+            move |tuple| {
+                extract_fact::<T>(tuple, index)
+                    .map(|fact| key_fn(fact))
+                    .unwrap_or_default()
+            }
+        }
+    }
+    
+    /// Direct value extraction (when the fact itself is the key)
+    pub fn value<T>() -> impl Fn(&dyn ZeroCopyFacts) -> T + 'static
     where
-        F: Fn(&dyn ZeroCopyFacts) -> Rc<dyn GreynetFact> + 'static,
+        T: GreynetFact + Clone,
     {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            AnyTuple::Uni(super::tuple::UniTuple::new(mapper(tuple)))
-        };
-        self.map_flex::<_, Arity1>(adapted_mapper)
+        |tuple| {
+            extract_fact::<T>(tuple, 0)
+                .cloned()
+                .expect("Required fact not found at position 0")
+        }
+    }
+    
+    /// Composite keys from multiple facts
+    pub fn composite<F, K>(key_fn: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
+    where
+        F: Fn(&dyn ZeroCopyFacts) -> K + 'static,
+        K: Hash + 'static,
+    {
+        key_fn
     }
 }
 
-impl<S: ScoreTrait + 'static> Stream<Arity3, S> {
-    pub fn join_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity4, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
-        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
-        let join_def = JoinDefinition::new(self.definition, other.definition, JoinerType::Equal, FunctionId(left_key_id), FunctionId(right_key_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
+// APPROACH 2: Ultra-simple macros
+#[macro_export]
+macro_rules! key {
+    // key!(Type, |fact| fact.field)
+    ($type:ty, $fn:expr) => {
+        key::first::<$type, _, _>($fn)
+    };
+    
+    // key!(at 1, Type, |fact| fact.field)
+    (at $index:expr, $type:ty, $fn:expr) => {
+        key::at::<$type, _, _>($index, $fn)
+    };
+    
+    // key!(optional Type, |fact| fact.field)
+    (optional $type:ty, $fn:expr) => {
+        key::optional::first::<$type, _, _>($fn)
+    };
+    
+    // key!(default Type, |fact| fact.field)
+    (default $type:ty, $fn:expr) => {
+        key::auto_default::first::<$type, _, _>($fn)
+    };
+    
+    // key!(value Type) - for when the fact itself is the key
+    (value $type:ty) => {
+        key::value::<$type>()
+    };
+}
 
-    pub fn if_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, true, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn if_not_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, false, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn group_by_tuple<F, K>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
-    where F: Fn(&dyn ZeroCopyFacts) -> K + 'static, K: Hash + 'static, {
-        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| {
-            let mut h = DefaultHasher::new();
-            key_fn(tuple).hash(&mut h);
-            h.finish()
-        });
-        self.group_by_flex(zero_copy_key_fn, collector_supplier)
-    }
-
-    pub fn flat_map_tuple<F>(self, mapper: F) -> Stream<Arity1, S>
+// APPROACH 4: Method-chaining builder pattern
+pub trait KeyBuilder<T> {
+    fn field<K, F>(self, f: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
     where
-        F: Fn(&dyn ZeroCopyFacts) -> Vec<Rc<dyn GreynetFact>> + 'static,
-    {
-        self.flat_map_flex(mapper)
-    }
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static;
+}
 
-    // Advanced map operations
-    pub fn map_to_single<F>(self, mapper: F) -> Stream<Arity1, S>
-    where
-        F: Fn(&dyn ZeroCopyFacts) -> Rc<dyn GreynetFact> + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            AnyTuple::Uni(super::tuple::UniTuple::new(mapper(tuple)))
-        };
-        self.map_flex::<_, Arity1>(adapted_mapper)
-    }
+pub struct FirstFact<T>(PhantomData<T>);
+pub struct AtIndex<T> { index: usize, _phantom: PhantomData<T> }
 
-    pub fn map_to_pair<F>(self, mapper: F) -> Stream<Arity2, S>
+pub fn first<T>() -> FirstFact<T> { FirstFact(PhantomData) }
+pub fn at_index<T>(index: usize) -> AtIndex<T> { AtIndex { index, _phantom: PhantomData } }
+
+impl<T> KeyBuilder<T> for FirstFact<T> {
+    fn field<K, F>(self, f: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
     where
-        F: Fn(&dyn ZeroCopyFacts) -> (Rc<dyn GreynetFact>, Rc<dyn GreynetFact>) + 'static,
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
     {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            let (a, b) = mapper(tuple);
-            AnyTuple::Bi(super::tuple::BiTuple::new(a, b))
-        };
-        self.map_flex::<_, Arity2>(adapted_mapper)
+        key::first::<T, K, F>(f)
     }
 }
 
-impl<S: ScoreTrait + 'static> Stream<Arity4, S> {
-    pub fn join_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Stream<Arity5, S>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        let factory_rc = self.factory.upgrade().expect("ConstraintFactory has been dropped");
-        let mut factory = factory_rc.borrow_mut();
-        let left_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T1>(tuple, fact_index).map_or(0, |fact| { let mut h = DefaultHasher::new(); left_key_fn(fact).hash(&mut h); h.finish() }));
-        let right_zc_key: ZeroCopyKeyFn = Rc::new(move |tuple| extract_fact::<T2>(tuple, 0).map_or(0, |fact| { let mut h = DefaultHasher::new(); right_key_fn(fact).hash(&mut h); h.finish() }));
-        let left_key_id = factory.register_zero_copy_key_fn(left_zc_key);
-        let right_key_id = factory.register_zero_copy_key_fn(right_zc_key);
-        let join_def = JoinDefinition::new(self.definition, other.definition, JoinerType::Equal, FunctionId(left_key_id), FunctionId(right_key_id));
-        Stream::new_with_context(StreamDefinition::Join(join_def), self.factory, self.constraint_id_context)
-    }
-
-    pub fn if_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, true, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn if_not_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, false, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn group_by_tuple<F, K>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
-    where F: Fn(&dyn ZeroCopyFacts) -> K + 'static, K: Hash + 'static, {
-        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| {
-            let mut h = DefaultHasher::new();
-            key_fn(tuple).hash(&mut h);
-            h.finish()
-        });
-        self.group_by_flex(zero_copy_key_fn, collector_supplier)
-    }
-
-    pub fn flat_map_tuple<F>(self, mapper: F) -> Stream<Arity1, S>
+impl<T> KeyBuilder<T> for AtIndex<T> {
+    fn field<K, F>(self, f: F) -> impl Fn(&dyn ZeroCopyFacts) -> K + 'static
     where
-        F: Fn(&dyn ZeroCopyFacts) -> Vec<Rc<dyn GreynetFact>> + 'static,
+        T: GreynetFact,
+        K: Hash + 'static,
+        F: Fn(&T) -> K + 'static,
     {
-        self.flat_map_flex(mapper)
-    }
-
-    // Map operations
-    pub fn map_to_single<F>(self, mapper: F) -> Stream<Arity1, S>
-    where
-        F: Fn(&dyn ZeroCopyFacts) -> Rc<dyn GreynetFact> + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            AnyTuple::Uni(super::tuple::UniTuple::new(mapper(tuple)))
-        };
-        self.map_flex::<_, Arity1>(adapted_mapper)
-    }
-}
-
-impl<S: ScoreTrait + 'static> Stream<Arity5, S> {
-    pub fn try_join_on_indexed<T1, T2, F1, F2, K>(self, _other: Stream<Arity1, S>, _fact_index: usize, _left_key_fn: F1, _right_key_fn: F2) -> GreynetResult<()>
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        Err(super::GreynetError::invalid_arity(5, 6))
-    }
-
-    pub fn if_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, true, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn if_not_exists_on_indexed<T1, T2, F1, F2, K>(self, other: Stream<Arity1, S>, fact_index: usize, left_key_fn: F1, right_key_fn: F2) -> Self
-    where T1: GreynetFact, T2: GreynetFact, F1: Fn(&T1) -> K + 'static, F2: Fn(&T2) -> K + 'static, K: Hash + 'static, {
-        self.if_conditionally(other, false, fact_index, left_key_fn, right_key_fn)
-    }
-
-    pub fn group_by_tuple<F, K>(self, key_fn: F, collector_supplier: Box<dyn Fn() -> Box<dyn BaseCollector>>) -> Stream<Arity2, S>
-    where F: Fn(&dyn ZeroCopyFacts) -> K + 'static, K: Hash + 'static, {
-        let zero_copy_key_fn: ZeroCopyKeyFn = Rc::new(move |tuple| {
-            let mut h = DefaultHasher::new();
-            key_fn(tuple).hash(&mut h);
-            h.finish()
-        });
-        self.group_by_flex(zero_copy_key_fn, collector_supplier)
-    }
-
-    pub fn flat_map_tuple<F>(self, mapper: F) -> Stream<Arity1, S>
-    where
-        F: Fn(&dyn ZeroCopyFacts) -> Vec<Rc<dyn GreynetFact>> + 'static,
-    {
-        self.flat_map_flex(mapper)
-    }
-
-    // Map to single
-    pub fn map_to_single<F>(self, mapper: F) -> Stream<Arity1, S>
-    where
-        F: Fn(&dyn ZeroCopyFacts) -> Rc<dyn GreynetFact> + 'static,
-    {
-        let adapted_mapper = move |tuple: &dyn ZeroCopyFacts| {
-            AnyTuple::Uni(super::tuple::UniTuple::new(mapper(tuple)))
-        };
-        self.map_flex::<_, Arity1>(adapted_mapper)
+        key::at::<T, K, F>(self.index, f)
     }
 }

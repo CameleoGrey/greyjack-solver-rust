@@ -71,7 +71,7 @@ impl Mover {
         let mut valid_ids_cache = HashMap::default();
         let mut cache_dirty = HashMap::default();
         
-        for group_name in tabu_ids_sets_map.keys() {
+        for group_name in group_mutation_rates_map.keys() {
             valid_ids_cache.insert(group_name.clone(), Vec::new());
             cache_dirty.insert(group_name.clone(), true);
         }
