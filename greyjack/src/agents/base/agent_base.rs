@@ -468,7 +468,6 @@ where
         }
 
         match &mut self.metaheuristic_base {
-            MetaheuristicsBasesVariants::None => panic!("Metaheuristic base is not initialized"),
             MetaheuristicsBasesVariants::LAB(la) => {
                 let migrant = &received_updates.migrants[0];
                 if (migrant.score <= la.late_scores.back().unwrap().clone()) || (migrant.score <= self.population[0].score) {
@@ -476,18 +475,34 @@ where
                     if la.late_scores.len() > la.late_acceptance_size {
                         la.late_scores.pop_back();
                     }
-
-                    //println!("Migrant: {:?} \n Native: {:?}", migrant, self.population[0]);
-
-                    self.population[0] = migrant.clone();
                 }
             },
-            MetaheuristicsBasesVariants::TSB(tsb) => {
+            _ => {}
+        }
+
+        match &mut self.metaheuristic_base { 
+            MetaheuristicsBasesVariants::LAB(_) | MetaheuristicsBasesVariants::TSB(_) | MetaheuristicsBasesVariants::SAB(_) => {
                 let migrant = &received_updates.migrants[0];
-                if migrant.score <= self.population[0].score {
-                    self.population[0] = migrant.clone();
+                if migrant.score < self.population[0].score {
+                    let migrant_copy = migrant.clone();
+                        match &mut self.score_requester {
+                            ScoreRequestersVariants::Greynet(sr_gnt) => {
+                                let deltas: Vec<(usize, f64)> = migrant_copy.variable_values
+                                                                        .iter()
+                                                                        .enumerate()
+                                                                        .map(|i_val| (i_val.0, i_val.1.clone()))
+                                                                        .zip(&self.population[0].variable_values)
+                                                                        .filter(|((i, x), y)| {x != *y})
+                                                                        .map(|((i, x), y)| {(i, x)})
+                                                                        .collect();
+                                //println!("{:?}", deltas);
+                                sr_gnt.commit_deltas(&deltas);
+                            },
+                            _ => {}
+                        }
+                        self.population[0] = migrant_copy;
                 }
-            }
+            },
             _ => (0..received_updates.migrants.len()).for_each(|i| {
                 if received_updates.migrants[i] <= self.population[comparison_ids[i]] {
                     self.population[comparison_ids[i]] = received_updates.migrants[i].clone();

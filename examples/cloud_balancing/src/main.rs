@@ -31,17 +31,17 @@ fn main() {
     let cotwin_builder = CotwinBuilder::new(CalculatorType::Greynet, true);
 
     //let termination_strategy = StL(StepsLimit::new(1000));
-    //let termination_strategy = TSL(TimeSpentLimit::new(60*1000));
-    let termination_strategy = SNI(ScoreNoImprovement::new(15*1000));
+    let termination_strategy = TSL(TimeSpentLimit::new(120*1000));
+    //let termination_strategy = SNI(ScoreNoImprovement::new(15*1000));
     //let termination_strategy = ScL(ScoreLimit::new(HardSoftScore::new(0.0, 0.0)));
 
-    //let agent_builder = TS(TabuSearch::new(20, 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, 10, termination_strategy));
-    let agent_builder = LA(LateAcceptance::new(32, 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 9999999, 100, termination_strategy));
+    let agent_builder = TS(TabuSearch::new(20, 0.2, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10, 99999, termination_strategy));
+    //let agent_builder = LA(LateAcceptance::new(64, 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 10000, 10, termination_strategy));
     //let agent_builder = SA(SimulatedAnnealing::new(vec![1.0, 1.0], Some(0.9999), 0.0, None, Some(vec![0.5, 0.5, 0.0, 0.0, 0.0, 0.0]), 9999999, 1, termination_strategy));
 
     let solution = Solver::solve(
         domain_builder.clone(), cotwin_builder, agent_builder,
-        4, Some(vec![0, 0]), SolverLoggingLevels::FreshOnly,
+        10, Some(vec![0, 0]), SolverLoggingLevels::FreshOnly,
         None, None,
     );
 
